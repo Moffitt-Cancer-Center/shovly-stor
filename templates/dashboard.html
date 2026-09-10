@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Metrics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f4f4f9; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0056b3; color: white; }
+        .warning { color: #d9534f; font-weight: bold; }
+        
+        /* Modal Styles */
+        #detailsModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: #fff; margin: 5% auto; padding: 20px; width: 80%; max-width: 800px; border-radius: 8px; }
+        .close { float: right; cursor: pointer; font-size: 24px; font-weight: bold; }
+        .chart-container { display: flex; gap: 20px; justify-content: space-around; margin-top: 20px; }
+        .chart-box { width: 45%; }
+    </style>
+</head>
+<body>
+
+    <h2>Global Storage Utilization</h2>
+    
+    <table id="metricsTable">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Capacity Usage (TB)</th>
+                <th>Quota Limit (TB)</th>
+                <th>Stale Data (%)</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data injected via JavaScript -->
+        </tbody>
+    </table>
+
+    <!-- Drill-down Modal -->
+    <div id="detailsModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle">User Details</h3>
+            <div id="modalMetrics"></div>
+            <div class="chart-container">
+                <div class="chart-box"><canvas id="temperatureChart"></canvas></div>
+                <div class="chart-box"><canvas id="capacityChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tempChartInstance = null;
+        let capChartInstance = null;
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                const tbody = document.querySelector('#metricsTable tbody');
+                tbody.innerHTML = '';
+                
+                data.forEach(user => {
+                    const usagePct = (user.usage_tb / user.limit_tb) * 100;
+                    const usageClass = usagePct > 90 ? 'warning' : '';
+                    
+                    const row = `<tr>
+                        <td>${user.username}</td>
+                        <td class="${usageClass}">${user.usage_tb.toFixed(2)}</td>
+                        <td>${user.limit_tb.toFixed(2)}</td>
+                        <td>${user.stale_data_pct}%</td>
+                        <td><button onclick="viewDetails('${user.username}')">Drill Down</button></td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error("Failed to load metrics:", error);
+            }
+        }
+
+        async function viewDetails(username) {
+            try {
+                const response = await fetch(`/api/users/${username}/metrics`);
+                const user = await response.json();
+                
+                document.getElementById('modalTitle').innerText = `Storage Analytics: ${user.username}`;
+                document.getElementById('modalMetrics').innerHTML = `
+                    <p><strong>Current IOPS:</strong> ${user.iops || 0}</p>
+                    <p><strong>Grace Period:</strong> ${user.grace_period || 'None'}</p>
+                `;
+                
+                renderCharts(user);
+                document.getElementById('detailsModal').style.display = 'block';
+            } catch (error) {
+                console.error("Failed to load user details:", error);
+            }
+        }
+
+        function renderCharts(user) {
+            const ctxTemp = document.getElementById('temperatureChart').getContext('2d');
+            const ctxCap = document.getElementById('capacityChart').getContext('2d');
+
+            // Destroy existing charts to prevent overlapping renders
+            if (tempChartInstance) tempChartInstance.destroy();
+            if (capChartInstance) capChartInstance.destroy();
+
+            // Data Temperature (Pie Chart)
+            const stalePct = user.stale_data_pct;
+            const activePct = 100 - stalePct;
+            
+            tempChartInstance = new Chart(ctxTemp, {
+                type: 'pie',
+                data: {
+                    labels: ['Active Data', 'Stale Data (>180d)'],
+                    datasets: [{
+                        data: [activePct, stalePct],
+                        backgroundColor: ['#28a745', '#ffc107']
+                    }]
+                },
+                options: { plugins: { title: { display: true, text: 'Data Temperature' } } }
+            });
+
+            // Capacity (Bar Chart)
+            const freeTb = user.limit_tb - user.usage_tb;
+            
+            capChartInstance = new Chart(ctxCap, {
+                type: 'bar',
+                data: {
+                    labels: ['Capacity (TB)'],
+                    datasets: [
+                        { label: 'Used', data: [user.usage_tb], backgroundColor: '#007bff' },
+                        { label: 'Free', data: [freeTb > 0 ? freeTb : 0], backgroundColor: '#e9ecef' }
+                    ]
+                },
+                options: { 
+                    plugins: { title: { display: true, text: 'Quota Usage' } },
+                    scales: { x: { stacked: true }, y: { stacked: true, max: user.limit_tb } }
+                }
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').style.display = 'none';
+        }
+
+        window.onload = fetchMetrics;
+    </script>
+</body>
+</html>

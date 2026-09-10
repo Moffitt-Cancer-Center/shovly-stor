@@ -1,0 +1,16 @@
+[Unit]
+Description=Shovly-stor Background Collector Daemon
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/shovly-stor
+ExecStart=/opt/shovly-stor/venv/bin/python collector.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+# sudo systemctl daemon-reload
+# sudo systemctl enable --now shovly-collector.service
+# sudo systemctl enable --now shovly-web.service

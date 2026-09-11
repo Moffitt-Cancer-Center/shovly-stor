@@ -7,7 +7,7 @@ import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter, Retry
 
-load_dotenv()
+load_dotenv(override=True)  # .env must win over any stray shell-exported vars (e.g. $USER)
 
 ONEFS_URL = os.getenv("ONEFS_URL", "https://isilon.local:8080")
 USER = os.getenv("METRICS_USER", "readonly-metrics-user")

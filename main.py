@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 import secrets
 
-load_dotenv()
+load_dotenv(override=True)  # .env must win over any stray shell-exported vars
 app = FastAPI(title="Shovly-stor Production Dashboard")
 security = HTTPBasic()
 

@@ -201,6 +201,10 @@ If you need to override the reporting path or point at a different InsightIQ dep
 
 The Varonis check is a confirmed, real auth request (see below), so a failure there reflects an actual credentials/network problem, not a guessed path.
 
+### `.env` values being ignored / wrong username showing up
+
+`python-dotenv`'s `load_dotenv()` does not override variables already present in the process environment by default — if `METRICS_USER` (or any other var this app reads) was ever exported in your shell (manually, via a profile script, etc.), that stray value silently wins over `.env`, even under `sudo`. `collector.py` and `main.py` now call `load_dotenv(override=True)` so `.env` is always authoritative. If you still see unexpected values, run `env | grep -E 'METRICS_|VARONIS_|ADMIN_|ONEFS_'` to check for leftover exports and `unset` them.
+
 ### Varonis Authentication
 
 Varonis uses a 3-step, job-based GraphQL flow — not simple Bearer-with-API-key:

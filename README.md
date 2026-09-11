@@ -74,6 +74,7 @@ sudo nano /opt/shovly-stor/.env
 ONEFS_URL=https://isilon.local:8080
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
+ONEFS_CLUSTER_ID=YourInsightIQClusterGuid
 VARONIS_URL=https://varonis.local
 VARONIS_API_KEY=YourVaronisApiKeyHere
 ADMIN_USER=admin
@@ -106,6 +107,7 @@ ADMIN_PASSWORD=ChooseYourOwnLocalPassword
 ONEFS_URL=https://isilon.local:8080
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
+ONEFS_CLUSTER_ID=YourInsightIQClusterGuid
 VARONIS_URL=https://varonis.local
 VARONIS_API_KEY=YourVaronisApiKeyHere
 ```
@@ -171,16 +173,27 @@ sudo venv/bin/python collector.py --check-connectivity
 
 It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
 
-**`ONEFS_CHECK_PATH` (`/platform/1/quota/quotas` by default) is a placeholder, not a confirmed vendor endpoint** — this repo does not ship a real InsightIQ/PowerScale API client yet. A `404` from the OneFS check means the path is wrong for your appliance, not that credentials are bad.
+**`ONEFS_CHECK_PATH` (`/insightiq/rest/reporting/v1/capacity/graph_data` by default) is InsightIQ's confirmed reporting API path** — captured from the browser DevTools Network tab against the InsightIQ web UI, not the PowerScale/OneFS Platform API (PAPI). The host at `10.15.25.120:8000` serves the InsightIQ Angular reporting appliance itself (`<title>InsightIQ</title>`, a `login` JS bundle), a separate product from raw PowerScale cluster nodes — PAPI paths like `/platform/1/quota/quotas` will always 404 there regardless of credentials.
 
-**Confirmed via `curl -vk https://10.15.25.120:8000`:** that host serves the InsightIQ Angular web application (`<title>InsightIQ</title>`, a `login` JS bundle) — it is the InsightIQ reporting appliance itself, not a raw PowerScale/OneFS node exposing the Platform API (PAPI). PAPI paths like `/platform/1/quota/quotas` only exist on PowerScale cluster nodes (typically port 8080) and will always 404 against InsightIQ, regardless of credentials. InsightIQ ships its own separate REST API that this repo doesn't have documented paths for yet.
+The real endpoint requires a `cluster` query param (the cluster GUID InsightIQ reports on) plus a `start_time`/`end_time` epoch window:
 
-To find InsightIQ's real API routes:
+```
+GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<cluster-guid>&start_time=<epoch>&end_time=<epoch>
+```
 
-- Log into the InsightIQ web UI at `https://10.15.25.120:8000`, open your browser's DevTools Network tab, and navigate to a capacity/quota report — the XHR/fetch calls it makes reveal the real endpoint paths and auth scheme (likely a login/session flow rather than HTTP Basic auth per request).
+Set the cluster GUID in `.env`:
+
+```
+ONEFS_CLUSTER_ID=04bf1be5052efe9de06516251b54e9494f6a
+```
+
+`collector.py --check-connectivity` builds the time window automatically (last hour) and uses HTTP Basic auth (`METRICS_USER`/`METRICS_PASSWORD`) — if that still 401s, capture the actual `Authorization`/cookie header InsightIQ's UI sends in DevTools, since some InsightIQ versions require a session-based login flow instead of per-request Basic auth.
+
+If you need to override the path or point at a different InsightIQ deployment:
+
+- Override it per-environment without editing code: set `ONEFS_CHECK_PATH` in `.env`.
 - Consult Dell's official "InsightIQ REST API Guide" for your installed version.
 - Check whether the appliance exposes a Swagger/OpenAPI UI (commonly at `/apidocs`, `/swagger`, or `/api-docs`).
-- Once confirmed, set `ONEFS_CHECK_PATH` in `.env` (and update `check_onefs_connectivity()`/`poll_storage_apis()` in `collector.py` if the auth model differs from Basic auth).
 
 The Varonis check is a confirmed, real auth request (see below), so a failure there reflects an actual credentials/network problem, not a guessed path.
 

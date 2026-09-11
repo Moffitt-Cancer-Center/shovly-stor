@@ -24,13 +24,12 @@ VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
 VARONIS_TOKEN_PATH = os.getenv("VARONIS_TOKEN_PATH", "/api/authentication/api_keys/token")
 VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
-# Placeholder path only -- confirm the real route against Dell's PowerScale/InsightIQ
-# API docs (see README Troubleshooting) and override here without touching code.
-# Note: `curl -vk` against 10.15.25.120:8000 returned the InsightIQ Angular web app
-# (title "InsightIQ", login bundle), not a raw PowerScale/OneFS Platform API (PAPI)
-# host -- InsightIQ ships its own separate REST API, so PAPI paths like this one
-# will 404 here regardless of credentials.
-ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/platform/1/quota/quotas")
+# Confirmed via browser DevTools Network tab against the InsightIQ web UI:
+# GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<id>&start_time=<epoch>&end_time=<epoch>
+# ONEFS_CLUSTER_ID is the cluster GUID InsightIQ reports on; find it in the same
+# Network tab capture (the "cluster" query param) if it differs per environment.
+ONEFS_CLUSTER_ID = os.getenv("ONEFS_CLUSTER_ID", "")
+ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/insightiq/rest/reporting/v1/capacity/graph_data")
 
 # Internal appliances often present self-signed certs; allow opt-out per environment
 VERIFY_TLS = os.getenv("VERIFY_TLS", "true").strip().lower() not in ("false", "0", "no")
@@ -67,10 +66,15 @@ def get_resilient_session():
     return session
 
 def check_onefs_connectivity(session):
-    """Perform a real authenticated request against OneFS and report reachability."""
+    """Perform a real authenticated request against InsightIQ's reporting API and report reachability."""
+    if not ONEFS_CLUSTER_ID:
+        return False, "ONEFS_CLUSTER_ID is not set -- required query param for the InsightIQ reporting API"
+    now = int(time.time())
+    params = {"cluster": ONEFS_CLUSTER_ID, "start_time": now - 3600, "end_time": now}
     try:
         resp = session.get(
             f"{ONEFS_URL}{ONEFS_CHECK_PATH}",
+            params=params,
             auth=(USER, PASSWORD),
             verify=VERIFY_TLS,
             timeout=10,
@@ -162,8 +166,9 @@ def poll_storage_apis():
     session = get_resilient_session()
     
     try:
-        # Example API Call to OneFS Quotas (Dummy data mapped for illustration)
-        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", auth=(USER, PASSWORD), verify=VERIFY_TLS, timeout=10)
+        # Example InsightIQ capacity call (confirmed real path/params via DevTools):
+        # params = {"cluster": ONEFS_CLUSTER_ID, "start_time": start_epoch, "end_time": end_epoch}
+        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", params=params, auth=(USER, PASSWORD), verify=VERIFY_TLS, timeout=10)
 
         # Example real Varonis flow: exchange API key for a token, submit a
         # GraphQL query to get a jobId, then poll poll_varonis_job() for results.

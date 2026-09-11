@@ -10,7 +10,10 @@ from requests.adapters import HTTPAdapter, Retry
 load_dotenv(override=True)  # .env must win over any stray shell-exported vars (e.g. $USER)
 
 ONEFS_URL = os.getenv("ONEFS_URL", "https://isilon.local:8080")
-USER = os.getenv("METRICS_USER", "readonly-metrics-user")
+# METRICS_USER must be a real InsightIQ account (InsightIQ uses per-user accounts,
+# not a generic shared service-account name) -- this deployment's dedicated
+# long-term read-only account is "shanecorder".
+USER = os.getenv("METRICS_USER", "shanecorder")
 PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 # Varonis authenticates via API key only, not username/password: the key is

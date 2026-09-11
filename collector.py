@@ -15,7 +15,11 @@ PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 # Varonis authenticates via API key only, not username/password: the key is
 # exchanged for a short-lived bearer token, which then authorizes GraphQL calls.
-VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local")
+# VARONIS_URL must be the tenant base URL only -- strip any leftover /api suffix
+# (VARONIS_TOKEN_PATH/VARONIS_GRAPHQL_PATH already include /api) to avoid /api/api/...
+VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local").rstrip("/")
+if VARONIS_URL.endswith("/api"):
+    VARONIS_URL = VARONIS_URL[: -len("/api")]
 VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
 VARONIS_TOKEN_PATH = os.getenv("VARONIS_TOKEN_PATH", "/api/authentication/api_keys/token")
 VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")

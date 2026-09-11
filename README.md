@@ -187,9 +187,11 @@ Set the cluster GUID in `.env`:
 ONEFS_CLUSTER_ID=04bf1be5052efe9de06516251b54e9494f6a
 ```
 
-`collector.py --check-connectivity` builds the time window automatically (last hour) and uses HTTP Basic auth (`METRICS_USER`/`METRICS_PASSWORD`) — if that still 401s, capture the actual `Authorization`/cookie header InsightIQ's UI sends in DevTools, since some InsightIQ versions require a session-based login flow instead of per-request Basic auth.
+**Confirmed via DevTools: InsightIQ authenticates with a session cookie (`insightiq_auth`, a JWT), not per-request HTTP Basic auth.** The cookie is issued by a login endpoint and carries the user's role (e.g. `read-only`) and a `csrf` claim. `collector.py` now performs a login step (`get_insightiq_session()`) with `METRICS_USER`/`METRICS_PASSWORD` before calling the reporting API, reusing the resulting cookie on the same `requests.Session`.
 
-If you need to override the path or point at a different InsightIQ deployment:
+**`ONEFS_LOGIN_PATH` (`/insightiq/rest/login` by default) is an unconfirmed guess** — capture the real login request (URL + request body shape) from DevTools when submitting InsightIQ's login form and set `ONEFS_LOGIN_PATH` in `.env` if it 404s. Never paste the resulting `insightiq_auth` cookie/JWT value anywhere (chat, commits, logs) — it's a live credential equivalent to a session password; if one is ever exposed, log out of that InsightIQ session or wait for it to expire.
+
+If you need to override the reporting path or point at a different InsightIQ deployment:
 
 - Override it per-environment without editing code: set `ONEFS_CHECK_PATH` in `.env`.
 - Consult Dell's official "InsightIQ REST API Guide" for your installed version.

@@ -24,6 +24,12 @@ VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
 VARONIS_TOKEN_PATH = os.getenv("VARONIS_TOKEN_PATH", "/api/authentication/api_keys/token")
 VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
+# Confirmed via browser DevTools: InsightIQ authenticates with a session cookie
+# ("insightiq_auth", a JWT) obtained from a login endpoint -- NOT per-request HTTP
+# Basic auth. ONEFS_LOGIN_PATH is unconfirmed; capture the real login POST
+# (URL + body) from DevTools when submitting the InsightIQ login form and set it here.
+ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/login")
+
 # Confirmed via browser DevTools Network tab against the InsightIQ web UI:
 # GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<id>&start_time=<epoch>&end_time=<epoch>
 # ONEFS_CLUSTER_ID is the cluster GUID InsightIQ reports on; find it in the same
@@ -65,17 +71,33 @@ def get_resilient_session():
     session.mount('https://', HTTPAdapter(max_retries=retries))
     return session
 
+def get_insightiq_session(session):
+    """Log in to InsightIQ so `session` carries the insightiq_auth cookie for subsequent calls.
+
+    ONEFS_LOGIN_PATH/payload format are unconfirmed -- capture the real login POST
+    from DevTools and adjust this if it 404s/401s.
+    """
+    resp = session.post(
+        f"{ONEFS_URL}{ONEFS_LOGIN_PATH}",
+        json={"username": USER, "password": PASSWORD},
+        verify=VERIFY_TLS,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    if "insightiq_auth" not in session.cookies:
+        raise ValueError("Login succeeded but no insightiq_auth cookie was set -- check ONEFS_LOGIN_PATH/payload")
+
 def check_onefs_connectivity(session):
-    """Perform a real authenticated request against InsightIQ's reporting API and report reachability."""
+    """Log in to InsightIQ and request the reporting API to confirm reachability/auth."""
     if not ONEFS_CLUSTER_ID:
         return False, "ONEFS_CLUSTER_ID is not set -- required query param for the InsightIQ reporting API"
     now = int(time.time())
     params = {"cluster": ONEFS_CLUSTER_ID, "start_time": now - 3600, "end_time": now}
     try:
+        get_insightiq_session(session)
         resp = session.get(
             f"{ONEFS_URL}{ONEFS_CHECK_PATH}",
             params=params,
-            auth=(USER, PASSWORD),
             verify=VERIFY_TLS,
             timeout=10,
         )
@@ -86,6 +108,8 @@ def check_onefs_connectivity(session):
         resp.raise_for_status()
         return True, f"OK (HTTP {resp.status_code})"
     except requests.exceptions.RequestException as e:
+        return False, str(e)
+    except ValueError as e:
         return False, str(e)
 
 def get_varonis_token(session):
@@ -166,9 +190,11 @@ def poll_storage_apis():
     session = get_resilient_session()
     
     try:
-        # Example InsightIQ capacity call (confirmed real path/params via DevTools):
+        # Example InsightIQ capacity call: log in for the insightiq_auth cookie,
+        # then request the reporting API on the same session (no Basic auth).
+        # get_insightiq_session(session)
         # params = {"cluster": ONEFS_CLUSTER_ID, "start_time": start_epoch, "end_time": end_epoch}
-        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", params=params, auth=(USER, PASSWORD), verify=VERIFY_TLS, timeout=10)
+        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", params=params, verify=VERIFY_TLS, timeout=10)
 
         # Example real Varonis flow: exchange API key for a token, submit a
         # GraphQL query to get a jobId, then poll poll_varonis_job() for results.

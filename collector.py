@@ -26,9 +26,10 @@ VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
 # Confirmed via browser DevTools: InsightIQ authenticates with a session cookie
 # ("insightiq_auth", a JWT) obtained from a login endpoint -- NOT per-request HTTP
-# Basic auth. ONEFS_LOGIN_PATH is unconfirmed; capture the real login POST
-# (URL + body) from DevTools when submitting the InsightIQ login form and set it here.
-ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/login")
+# Basic auth. Login URL confirmed via DevTools; request body shape (field names)
+# is still unconfirmed -- adjust the json= payload in get_insightiq_session() below
+# once you've captured it (see README Troubleshooting).
+ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/security-iam/v1/auth/session")
 
 # Confirmed via browser DevTools Network tab against the InsightIQ web UI:
 # GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<id>&start_time=<epoch>&end_time=<epoch>

@@ -189,7 +189,9 @@ ONEFS_CLUSTER_ID=04bf1be5052efe9de06516251b54e9494f6a
 
 **Confirmed via DevTools: InsightIQ authenticates with a session cookie (`insightiq_auth`, a JWT), not per-request HTTP Basic auth.** The cookie is issued by a login endpoint and carries the user's role (e.g. `read-only`) and a `csrf` claim. `collector.py` now performs a login step (`get_insightiq_session()`) with `METRICS_USER`/`METRICS_PASSWORD` before calling the reporting API, reusing the resulting cookie on the same `requests.Session`.
 
-**`ONEFS_LOGIN_PATH` (`/insightiq/rest/login` by default) is an unconfirmed guess** — capture the real login request (URL + request body shape) from DevTools when submitting InsightIQ's login form and set `ONEFS_LOGIN_PATH` in `.env` if it 404s. Never paste the resulting `insightiq_auth` cookie/JWT value anywhere (chat, commits, logs) — it's a live credential equivalent to a session password; if one is ever exposed, log out of that InsightIQ session or wait for it to expire.
+**`ONEFS_LOGIN_PATH` (`/insightiq/rest/security-iam/v1/auth/session` by default) is confirmed via DevTools as the login/session endpoint URL, but its request body shape (field names) is not yet confirmed.** `get_insightiq_session()` currently POSTs `{"username": ..., "password": ...}` as JSON — adjust the payload in `collector.py` once you've captured the real body (see below). Never paste the resulting `insightiq_auth` cookie/JWT value anywhere (chat, commits, logs) — it's a live credential equivalent to a session password; if one is ever exposed, log out of that InsightIQ session or wait for it to expire.
+
+To capture the request body shape in DevTools: open the Network tab, submit the InsightIQ login form, click the `auth/session` request in the list, and open its **Payload** (Chrome) or **Request** (Firefox) tab — it shows the exact field names sent (e.g. `username`/`password` vs. `user`/`pass`, and whether it's JSON or form-encoded). Share those field *names* (redact the password value) so the payload in `get_insightiq_session()` can be corrected if needed.
 
 If you need to override the reporting path or point at a different InsightIQ deployment:
 

@@ -1,3 +1,4 @@
+#!/opt/shovly-stor/venv/bin/python3
 import os
 import sys
 import sqlite3

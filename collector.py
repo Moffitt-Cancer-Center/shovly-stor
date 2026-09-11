@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 import sqlite3
@@ -14,6 +15,9 @@ PASSWORD = os.getenv("METRICS_PASSWORD", "")
 # Varonis DatAdvantage authenticates via API key only, not username/password
 VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local/api")
 VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
+
+# Internal appliances often present self-signed certs; allow opt-out per environment
+VERIFY_TLS = os.getenv("VERIFY_TLS", "true").strip().lower() not in ("false", "0", "no")
 
 DB_PATH = os.getenv("SHOVLY_DB_PATH", "data/Shovly-stor")
 
@@ -43,6 +47,46 @@ def get_resilient_session():
     retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
     session.mount('https://', HTTPAdapter(max_retries=retries))
     return session
+
+def check_onefs_connectivity(session):
+    """Perform a real authenticated request against OneFS and report reachability."""
+    try:
+        resp = session.get(
+            f"{ONEFS_URL}/platform/1/quota/quotas",
+            auth=(USER, PASSWORD),
+            verify=VERIFY_TLS,
+            timeout=10,
+        )
+        if resp.status_code == 401:
+            return False, "Reachable, but authentication failed (check METRICS_USER/METRICS_PASSWORD)"
+        resp.raise_for_status()
+        return True, f"OK (HTTP {resp.status_code})"
+    except requests.exceptions.RequestException as e:
+        return False, str(e)
+
+def check_varonis_connectivity(session):
+    """Perform a real authenticated request against Varonis and report reachability."""
+    try:
+        headers = {"Authorization": f"Bearer {VARONIS_API_KEY}"}
+        resp = session.get(f"{VARONIS_URL}/statistics", headers=headers, verify=VERIFY_TLS, timeout=10)
+        if resp.status_code == 401:
+            return False, "Reachable, but authentication failed (check VARONIS_API_KEY)"
+        resp.raise_for_status()
+        return True, f"OK (HTTP {resp.status_code})"
+    except requests.exceptions.RequestException as e:
+        return False, str(e)
+
+def run_connectivity_check():
+    session = get_resilient_session()
+    print("[*] Testing OneFS connectivity...")
+    onefs_ok, onefs_detail = check_onefs_connectivity(session)
+    print(f"    {'[+] OneFS OK' if onefs_ok else '[-] OneFS FAILED'}: {onefs_detail}")
+
+    print("[*] Testing Varonis connectivity...")
+    varonis_ok, varonis_detail = check_varonis_connectivity(session)
+    print(f"    {'[+] Varonis OK' if varonis_ok else '[-] Varonis FAILED'}: {varonis_detail}")
+
+    return onefs_ok and varonis_ok
 
 def poll_storage_apis():
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting metrics collection cycle...")
@@ -81,6 +125,18 @@ def poll_storage_apis():
         print(f"[-] Error during metrics collection: {e}")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Shovly-stor background metrics collector")
+    parser.add_argument(
+        "--check-connectivity",
+        action="store_true",
+        help="Test authentication against OneFS and Varonis, then exit (no polling, no DB writes)",
+    )
+    args = parser.parse_args()
+
+    if args.check_connectivity:
+        success = run_connectivity_check()
+        raise SystemExit(0 if success else 1)
+
     init_db()
     while True:
         poll_storage_apis()

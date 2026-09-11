@@ -96,6 +96,23 @@ To run the stack locally without the full installer:
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+Create a `.env` file in the project root (it is not generated for you outside of `install.sh`) with at least the admin dashboard credentials:
+
+```
+ADMIN_USER=admin
+ADMIN_PASSWORD=ChooseYourOwnLocalPassword
+ONEFS_URL=https://isilon.local:8080
+METRICS_USER=readonly-metrics-user
+METRICS_PASSWORD=YourSecureProductionPasswordHere
+VARONIS_URL=https://varonis.local/api
+VARONIS_API_KEY=YourVaronisApiKeyHere
+```
+
+Without this file, `main.py` falls back to the hardcoded defaults `admin` / `secret`.
+
+```bash
 python collector.py &          # populates data/Shovly-stor
 uvicorn main:app --reload
 ```
@@ -140,3 +157,36 @@ sudo systemctl restart shovly-collector.service
 # View live daemon logs
 journalctl -u shovly-collector.service -f
 ```
+
+## Troubleshooting
+
+### Testing Varonis/InsightIQ connectivity
+
+The collector's polling cycle currently writes simulated demo data on every run — it does not yet call the live APIs — so there is nothing to observe by watching the dashboard. To independently verify authentication and network reachability against both OneFS and Varonis, run the collector's built-in connectivity check, which performs a real authenticated request to each API and exits without touching the database:
+
+```bash
+cd /opt/shovly-stor
+sudo venv/bin/python collector.py --check-connectivity
+```
+
+It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
+
+### Dashboard login (`admin`/password) doesn't work
+
+`main.py` reads `ADMIN_USER`/`ADMIN_PASSWORD` from `.env` via `load_dotenv()`, which only finds the file if it exists in the process's working directory:
+
+- Under systemd, `WorkingDirectory=/opt/shovly-stor` is set for you, so confirm `/opt/shovly-stor/.env` exists and contains the values you expect.
+- After editing `.env`, you must restart the service (`sudo systemctl restart shovly-web.service`) — changes are only read at process startup.
+- When running locally per the [Local Development](#local-development) steps, you must create your own `.env` in the directory you launch `uvicorn` from; without it, the credentials silently fall back to `admin` / `secret`.
+
+### `user_storage_cli.py: Permission denied`
+
+This means the execute bit isn't set on the installed copy. `install.sh` runs `chmod +x` on it automatically; if you copied the file manually or are testing outside of the installer, fix it with:
+
+```bash
+sudo chmod +x /usr/local/bin/user_storage_cli.py
+```
+
+### `show_storage.sh` prints nothing when run manually
+
+This is expected — the hook only runs its summary in an interactive login shell (`[[ $- == *i* ]]`), so invoking it directly with `sh /etc/profile.d/show_storage.sh` from an existing session is a no-op by design. To see the summary, start a new interactive SSH session (or run `bash -i /etc/profile.d/show_storage.sh`) after confirming `user_storage_cli.py` is executable and populated data exists for your username.

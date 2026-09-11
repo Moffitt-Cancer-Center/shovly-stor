@@ -13,14 +13,16 @@ ONEFS_URL = os.getenv("ONEFS_URL", "https://isilon.local:8080")
 USER = os.getenv("METRICS_USER", "readonly-metrics-user")
 PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
-# Varonis DatAdvantage authenticates via API key only, not username/password
-VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local/api")
+# Varonis authenticates via API key only, not username/password: the key is
+# exchanged for a short-lived bearer token, which then authorizes GraphQL calls.
+VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local")
 VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
+VARONIS_TOKEN_PATH = os.getenv("VARONIS_TOKEN_PATH", "/api/authentication/api_keys/token")
+VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
-# Placeholder paths only -- confirm the real routes against your vendor's API docs
-# (see README Troubleshooting) and override here without touching code.
+# Placeholder path only -- confirm the real route against Dell's PowerScale/InsightIQ
+# API docs (see README Troubleshooting) and override here without touching code.
 ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/platform/1/quota/quotas")
-VARONIS_CHECK_PATH = os.getenv("VARONIS_CHECK_PATH", "/statistics")
 
 # Internal appliances often present self-signed certs; allow opt-out per environment
 VERIFY_TLS = os.getenv("VERIFY_TLS", "true").strip().lower() not in ("false", "0", "no")
@@ -74,18 +76,65 @@ def check_onefs_connectivity(session):
     except requests.exceptions.RequestException as e:
         return False, str(e)
 
+def get_varonis_token(session):
+    """Exchange the Varonis API key for a short-lived bearer token (step 1 of 3)."""
+    resp = session.post(
+        f"{VARONIS_URL}{VARONIS_TOKEN_PATH}",
+        headers={"x-api-key": VARONIS_API_KEY},
+        data={"grant_type": "varonis_custom"},
+        verify=VERIFY_TLS,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    for key in ("access_token", "accessToken", "token"):
+        if key in payload:
+            return payload[key]
+    raise KeyError(f"Varonis token response did not contain a recognized token field: {list(payload.keys())}")
+
+def submit_varonis_graphql(session, token, query, variables=None):
+    """Submit a GraphQL query/job to Varonis (step 2 of 3); returns the parsed JSON response."""
+    resp = session.post(
+        f"{VARONIS_URL}{VARONIS_GRAPHQL_PATH}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"query": query, "variables": variables or {}},
+        verify=VERIFY_TLS,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+EVENTS_QUERY_JOB = """
+query EventsQueryJob($jobId: ID!) {
+  eventsQueryJob(jobId: $jobId) {
+    jobId
+    results {
+      actor { email }
+      affectedObjectName
+      id
+      operation
+      status
+    }
+  }
+}
+"""
+
+def poll_varonis_job(session, token, job_id):
+    """Poll a previously submitted Varonis job for results (step 3 of 3)."""
+    return submit_varonis_graphql(session, token, EVENTS_QUERY_JOB, {"jobId": job_id})
+
 def check_varonis_connectivity(session):
-    """Perform a real authenticated request against Varonis and report reachability."""
+    """Verify the Varonis API key can be exchanged for a bearer token (real auth check)."""
     try:
-        headers = {"Authorization": f"Bearer {VARONIS_API_KEY}"}
-        resp = session.get(f"{VARONIS_URL}{VARONIS_CHECK_PATH}", headers=headers, verify=VERIFY_TLS, timeout=10)
-        if resp.status_code == 401:
+        get_varonis_token(session)
+        return True, "OK (API key exchanged for bearer token)"
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code in (401, 403):
             return False, "Reachable, but authentication failed (check VARONIS_API_KEY)"
-        if resp.status_code in (404, 503):
-            return False, f"Reachable, but {VARONIS_CHECK_PATH} returned {resp.status_code} -- wrong path/tenant route, set VARONIS_CHECK_PATH"
-        resp.raise_for_status()
-        return True, f"OK (HTTP {resp.status_code})"
+        return False, str(e)
     except requests.exceptions.RequestException as e:
+        return False, str(e)
+    except KeyError as e:
         return False, str(e)
 
 def run_connectivity_check():
@@ -106,11 +155,13 @@ def poll_storage_apis():
     
     try:
         # Example API Call to OneFS Quotas (Dummy data mapped for illustration)
-        # response = session.get(f"{ONEFS_URL}/platform/1/quota/quotas", auth=(USER, PASSWORD), verify=False, timeout=10)
+        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", auth=(USER, PASSWORD), verify=VERIFY_TLS, timeout=10)
 
-        # Example API Call to Varonis DatAdvantage (API key auth, not username/password)
-        # headers = {"Authorization": f"Bearer {VARONIS_API_KEY}"}
-        # response = session.get(f"{VARONIS_URL}/statistics", headers=headers, verify=False, timeout=10)
+        # Example real Varonis flow: exchange API key for a token, submit a
+        # GraphQL query to get a jobId, then poll poll_varonis_job() for results.
+        # token = get_varonis_token(session)
+        # job = submit_varonis_graphql(session, token, MY_QUERY)
+        # results = poll_varonis_job(session, token, job["jobId"])
 
         # Simulated payload representing processed aggregation of Varonis + InsightIQ
         simulated_data = [

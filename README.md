@@ -74,13 +74,13 @@ sudo nano /opt/shovly-stor/.env
 ONEFS_URL=https://isilon.local:8080
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
-VARONIS_URL=https://varonis.local/api
+VARONIS_URL=https://varonis.local
 VARONIS_API_KEY=YourVaronisApiKeyHere
 ADMIN_USER=admin
 ADMIN_PASSWORD=SuperSecretAdminPassword
 ```
 
-`METRICS_USER` / `METRICS_PASSWORD` authenticate only against the OneFS API. Varonis DatAdvantage does not accept username/password credentials — it authenticates solely via `VARONIS_API_KEY`.
+`METRICS_USER` / `METRICS_PASSWORD` authenticate only against the OneFS API. Varonis does not accept username/password credentials — `VARONIS_API_KEY` is exchanged for a short-lived bearer token (see [Varonis Authentication](#varonis-authentication) below). `VARONIS_URL` is your tenant's base URL (e.g. `https://moffitt.varonis.io`), without an `/api` suffix.
 
 After modifying the file, restart the background collector and web services to apply changes:
 
@@ -106,7 +106,7 @@ ADMIN_PASSWORD=ChooseYourOwnLocalPassword
 ONEFS_URL=https://isilon.local:8080
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
-VARONIS_URL=https://varonis.local/api
+VARONIS_URL=https://varonis.local
 VARONIS_API_KEY=YourVaronisApiKeyHere
 ```
 
@@ -171,12 +171,23 @@ sudo venv/bin/python collector.py --check-connectivity
 
 It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
 
-**`/platform/1/quota/quotas` and `/statistics` are placeholder paths, not confirmed vendor endpoints.** They only illustrate the auth style each product expects — this repo does not ship real InsightIQ/Varonis API clients. A `404`/`503` from the connectivity check means the path is wrong for your appliance/tenant, not that credentials are bad. To confirm the correct paths:
+**`ONEFS_CHECK_PATH` (`/platform/1/quota/quotas` by default) is a placeholder, not a confirmed vendor endpoint** — this repo does not ship a real InsightIQ/PowerScale API client yet. A `404` from the OneFS check means the path is wrong for your appliance, not that credentials are bad. To confirm the correct path:
 
-- Override them per-environment without editing code: set `ONEFS_CHECK_PATH` / `VARONIS_CHECK_PATH` in `.env`.
-- Consult your vendor's REST API reference for your installed version/tenant — PowerScale/OneFS Platform API docs for InsightIQ, and the Varonis DatAdvantage/SaaS API guide for `moffitt.varonis.io` (SaaS tenants use different routes than on-prem DatAdvantage).
+- Override it per-environment without editing code: set `ONEFS_CHECK_PATH` in `.env`.
+- Consult Dell's PowerScale/InsightIQ REST API reference for your installed version.
 - Probe with `curl -v` against candidate paths to see the raw response/redirects, and check whether the appliance exposes a Swagger/OpenAPI UI (commonly at `/apidocs`, `/swagger`, or `/api-docs`).
-- A `503` (as seen with Varonis) often indicates an API gateway/WAF rejecting an unrecognized route rather than the service being down — verify the base URL and tenant-specific path segment with Varonis support if the vendor docs don't resolve it.
+
+The Varonis check is a confirmed, real auth request (see below), so a failure there reflects an actual credentials/network problem, not a guessed path.
+
+### Varonis Authentication
+
+Varonis uses a 3-step, job-based GraphQL flow — not simple Bearer-with-API-key:
+
+1. **Get a token**: `POST {VARONIS_URL}/api/authentication/api_keys/token` with header `x-api-key: <VARONIS_API_KEY>` and form-urlencoded body `grant_type=varonis_custom`. Returns a short-lived bearer token. Implemented as `get_varonis_token()` in `collector.py`.
+2. **Submit a query**: `POST {VARONIS_URL}/api/graphql` with `Authorization: Bearer <token>` and a GraphQL query body describing the data you want. Returns a `jobId`. Implemented as `submit_varonis_graphql()`.
+3. **Poll for results**: `POST {VARONIS_URL}/api/graphql` again with the `EventsQueryJob($jobId: ID!)` query and the `jobId` from step 2 to retrieve results once the job completes. Implemented as `poll_varonis_job()`.
+
+`collector.py --check-connectivity` only exercises step 1 (token exchange) to confirm the API key and network path are valid. Steps 2 and 3 require a specific GraphQL query for the metrics you want to pull, which aren't wired into the simulated polling cycle yet.
 
 ### Dashboard login (`admin`/password) doesn't work
 

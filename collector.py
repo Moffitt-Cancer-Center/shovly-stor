@@ -3,6 +3,7 @@ import os
 import time
 import sqlite3
 import requests
+import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter, Retry
 
@@ -16,8 +17,15 @@ PASSWORD = os.getenv("METRICS_PASSWORD", "")
 VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local/api")
 VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
 
+# Placeholder paths only -- confirm the real routes against your vendor's API docs
+# (see README Troubleshooting) and override here without touching code.
+ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/platform/1/quota/quotas")
+VARONIS_CHECK_PATH = os.getenv("VARONIS_CHECK_PATH", "/statistics")
+
 # Internal appliances often present self-signed certs; allow opt-out per environment
 VERIFY_TLS = os.getenv("VERIFY_TLS", "true").strip().lower() not in ("false", "0", "no")
+if not VERIFY_TLS:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DB_PATH = os.getenv("SHOVLY_DB_PATH", "data/Shovly-stor")
 
@@ -52,13 +60,15 @@ def check_onefs_connectivity(session):
     """Perform a real authenticated request against OneFS and report reachability."""
     try:
         resp = session.get(
-            f"{ONEFS_URL}/platform/1/quota/quotas",
+            f"{ONEFS_URL}{ONEFS_CHECK_PATH}",
             auth=(USER, PASSWORD),
             verify=VERIFY_TLS,
             timeout=10,
         )
         if resp.status_code == 401:
             return False, "Reachable, but authentication failed (check METRICS_USER/METRICS_PASSWORD)"
+        if resp.status_code == 404:
+            return False, f"Reachable, but {ONEFS_CHECK_PATH} returned 404 -- wrong path/port for this appliance, set ONEFS_CHECK_PATH"
         resp.raise_for_status()
         return True, f"OK (HTTP {resp.status_code})"
     except requests.exceptions.RequestException as e:
@@ -68,9 +78,11 @@ def check_varonis_connectivity(session):
     """Perform a real authenticated request against Varonis and report reachability."""
     try:
         headers = {"Authorization": f"Bearer {VARONIS_API_KEY}"}
-        resp = session.get(f"{VARONIS_URL}/statistics", headers=headers, verify=VERIFY_TLS, timeout=10)
+        resp = session.get(f"{VARONIS_URL}{VARONIS_CHECK_PATH}", headers=headers, verify=VERIFY_TLS, timeout=10)
         if resp.status_code == 401:
             return False, "Reachable, but authentication failed (check VARONIS_API_KEY)"
+        if resp.status_code in (404, 503):
+            return False, f"Reachable, but {VARONIS_CHECK_PATH} returned {resp.status_code} -- wrong path/tenant route, set VARONIS_CHECK_PATH"
         resp.raise_for_status()
         return True, f"OK (HTTP {resp.status_code})"
     except requests.exceptions.RequestException as e:

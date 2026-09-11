@@ -171,6 +171,13 @@ sudo venv/bin/python collector.py --check-connectivity
 
 It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
 
+**`/platform/1/quota/quotas` and `/statistics` are placeholder paths, not confirmed vendor endpoints.** They only illustrate the auth style each product expects — this repo does not ship real InsightIQ/Varonis API clients. A `404`/`503` from the connectivity check means the path is wrong for your appliance/tenant, not that credentials are bad. To confirm the correct paths:
+
+- Override them per-environment without editing code: set `ONEFS_CHECK_PATH` / `VARONIS_CHECK_PATH` in `.env`.
+- Consult your vendor's REST API reference for your installed version/tenant — PowerScale/OneFS Platform API docs for InsightIQ, and the Varonis DatAdvantage/SaaS API guide for `moffitt.varonis.io` (SaaS tenants use different routes than on-prem DatAdvantage).
+- Probe with `curl -v` against candidate paths to see the raw response/redirects, and check whether the appliance exposes a Swagger/OpenAPI UI (commonly at `/apidocs`, `/swagger`, or `/api-docs`).
+- A `503` (as seen with Varonis) often indicates an API gateway/WAF rejecting an unrecognized route rather than the service being down — verify the base URL and tenant-specific path segment with Varonis support if the vendor docs don't resolve it.
+
 ### Dashboard login (`admin`/password) doesn't work
 
 `main.py` reads `ADMIN_USER`/`ADMIN_PASSWORD` from `.env` via `load_dotenv()`, which only finds the file if it exists in the process's working directory:

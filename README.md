@@ -171,11 +171,16 @@ sudo venv/bin/python collector.py --check-connectivity
 
 It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
 
-**`ONEFS_CHECK_PATH` (`/platform/1/quota/quotas` by default) is a placeholder, not a confirmed vendor endpoint** — this repo does not ship a real InsightIQ/PowerScale API client yet. A `404` from the OneFS check means the path is wrong for your appliance, not that credentials are bad. To confirm the correct path:
+**`ONEFS_CHECK_PATH` (`/platform/1/quota/quotas` by default) is a placeholder, not a confirmed vendor endpoint** — this repo does not ship a real InsightIQ/PowerScale API client yet. A `404` from the OneFS check means the path is wrong for your appliance, not that credentials are bad.
 
-- Override it per-environment without editing code: set `ONEFS_CHECK_PATH` in `.env`.
-- Consult Dell's PowerScale/InsightIQ REST API reference for your installed version.
-- Probe with `curl -v` against candidate paths to see the raw response/redirects, and check whether the appliance exposes a Swagger/OpenAPI UI (commonly at `/apidocs`, `/swagger`, or `/api-docs`).
+**Confirmed via `curl -vk https://10.15.25.120:8000`:** that host serves the InsightIQ Angular web application (`<title>InsightIQ</title>`, a `login` JS bundle) — it is the InsightIQ reporting appliance itself, not a raw PowerScale/OneFS node exposing the Platform API (PAPI). PAPI paths like `/platform/1/quota/quotas` only exist on PowerScale cluster nodes (typically port 8080) and will always 404 against InsightIQ, regardless of credentials. InsightIQ ships its own separate REST API that this repo doesn't have documented paths for yet.
+
+To find InsightIQ's real API routes:
+
+- Log into the InsightIQ web UI at `https://10.15.25.120:8000`, open your browser's DevTools Network tab, and navigate to a capacity/quota report — the XHR/fetch calls it makes reveal the real endpoint paths and auth scheme (likely a login/session flow rather than HTTP Basic auth per request).
+- Consult Dell's official "InsightIQ REST API Guide" for your installed version.
+- Check whether the appliance exposes a Swagger/OpenAPI UI (commonly at `/apidocs`, `/swagger`, or `/api-docs`).
+- Once confirmed, set `ONEFS_CHECK_PATH` in `.env` (and update `check_onefs_connectivity()`/`poll_storage_apis()` in `collector.py` if the auth model differs from Basic auth).
 
 The Varonis check is a confirmed, real auth request (see below), so a failure there reflects an actual credentials/network problem, not a guessed path.
 

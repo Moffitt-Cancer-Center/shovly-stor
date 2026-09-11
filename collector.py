@@ -26,6 +26,10 @@ VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
 # Placeholder path only -- confirm the real route against Dell's PowerScale/InsightIQ
 # API docs (see README Troubleshooting) and override here without touching code.
+# Note: `curl -vk` against 10.15.25.120:8000 returned the InsightIQ Angular web app
+# (title "InsightIQ", login bundle), not a raw PowerScale/OneFS Platform API (PAPI)
+# host -- InsightIQ ships its own separate REST API, so PAPI paths like this one
+# will 404 here regardless of credentials.
 ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/platform/1/quota/quotas")
 
 # Internal appliances often present self-signed certs; allow opt-out per environment

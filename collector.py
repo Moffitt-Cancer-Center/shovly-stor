@@ -8,9 +8,13 @@ from requests.adapters import HTTPAdapter, Retry
 load_dotenv()
 
 ONEFS_URL = os.getenv("ONEFS_URL", "https://isilon.local:8080")
-VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local/api")
 USER = os.getenv("METRICS_USER", "readonly-metrics-user")
 PASSWORD = os.getenv("METRICS_PASSWORD", "")
+
+# Varonis DatAdvantage authenticates via API key only, not username/password
+VARONIS_URL = os.getenv("VARONIS_URL", "https://varonis.local/api")
+VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
+
 DB_PATH = os.getenv("SHOVLY_DB_PATH", "data/Shovly-stor")
 
 def get_db():
@@ -47,7 +51,11 @@ def poll_storage_apis():
     try:
         # Example API Call to OneFS Quotas (Dummy data mapped for illustration)
         # response = session.get(f"{ONEFS_URL}/platform/1/quota/quotas", auth=(USER, PASSWORD), verify=False, timeout=10)
-        
+
+        # Example API Call to Varonis DatAdvantage (API key auth, not username/password)
+        # headers = {"Authorization": f"Bearer {VARONIS_API_KEY}"}
+        # response = session.get(f"{VARONIS_URL}/statistics", headers=headers, verify=False, timeout=10)
+
         # Simulated payload representing processed aggregation of Varonis + InsightIQ
         simulated_data = [
             ("jdoe", 4.2, 5.0, 35.0, 125, "None"),

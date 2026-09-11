@@ -57,9 +57,10 @@ if [ ! -f "${APP_DIR}/.env" ]; then
     echo "[+] Creating default production .env configuration file..."
     cat << 'EOF' > "${APP_DIR}/.env"
 ONEFS_URL=https://isilon.local:8080
-VARONIS_URL=https://varonis.local/api
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
+VARONIS_URL=https://varonis.local/api
+VARONIS_API_KEY=YourVaronisApiKeyHere
 ADMIN_USER=admin
 ADMIN_PASSWORD=SuperSecretAdminPassword
 EOF

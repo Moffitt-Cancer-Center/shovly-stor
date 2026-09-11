@@ -1,6 +1,6 @@
 # Shovly-stor Storage Metrics Suite
 
-Shovly-stor is an enterprise-grade storage monitoring and analytics platform designed to aggregate metrics from Dell InsightIQ (OneFS) and Varonis DatAdvantage using a read-only account (`readonly-metrics-user`).
+Shovly-stor is an enterprise-grade storage monitoring and analytics platform designed to aggregate metrics from Dell InsightIQ (OneFS), authenticated via a read-only account (`readonly-metrics-user`), and Varonis DatAdvantage, authenticated via a dedicated API key.
 
 It decouples live API polling from user interactions by utilizing a dedicated background collector daemon and a local SQLite cache (running in WAL mode), providing zero-latency command-line summaries on SSH login and a secure administrative web dashboard equipped with dynamic Chart.js drill-downs.
 
@@ -41,7 +41,8 @@ The source repository mirrors this layout directly: `templates/dashboard.html`, 
 ### 1. Prerequisites
 
 - A Linux server (Ubuntu/Debian/RHEL-based) with root or sudo privileges.
-- Network access to your Dell OneFS and Varonis API endpoints using `readonly-metrics-user` credentials.
+- Network access to your Dell OneFS API endpoint using `readonly-metrics-user` credentials.
+- Network access to your Varonis DatAdvantage API endpoint using a valid API key (username/password is not supported by Varonis).
 
 ### 2. Automated Installation
 
@@ -71,12 +72,15 @@ sudo nano /opt/shovly-stor/.env
 
 ```
 ONEFS_URL=https://isilon.local:8080
-VARONIS_URL=https://varonis.local/api
 METRICS_USER=readonly-metrics-user
 METRICS_PASSWORD=YourSecureProductionPasswordHere
+VARONIS_URL=https://varonis.local/api
+VARONIS_API_KEY=YourVaronisApiKeyHere
 ADMIN_USER=admin
 ADMIN_PASSWORD=SuperSecretAdminPassword
 ```
+
+`METRICS_USER` / `METRICS_PASSWORD` authenticate only against the OneFS API. Varonis DatAdvantage does not accept username/password credentials — it authenticates solely via `VARONIS_API_KEY`.
 
 After modifying the file, restart the background collector and web services to apply changes:
 

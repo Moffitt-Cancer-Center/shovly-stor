@@ -215,10 +215,11 @@ def poll_varonis_job(session, token, job_id):
 # lastModified), and resourceOwner.samAccountName (not owner.accountName).
 # isStale and dataSource{id,name} matched the initial guess. No pagination
 # fields exist on ResourceQueryJob, so a single job poll is assumed to return
-# the full result set for the scanned file server.
+# the full result set for the scanned file server. The filter argument itself
+# is named "where" (confirmed via the GraphQL error), not "filter".
 RESOURCES_ASYNC_QUERY = """
 query StartResourceQuery {
-  resourcesAsync(filter: { type: { eq: FILE } }) {
+  resourcesAsync(where: { type: { eq: FILE } }) {
     jobId
     jobStatus
   }

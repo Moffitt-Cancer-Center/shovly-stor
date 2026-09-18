@@ -350,8 +350,7 @@ def run_varonis_type_introspection(type_name):
     filter type named in a GraphQL error) so arguments can be built without guessing."""
     session = get_resilient_session()
     token = get_varonis_token(session)
-    result = submit_varonis_graphql(session, token, TYPE_INTROSPECTION_QUERY, {"typeName": type_name})
-    type_info = result.get("data", {}).get("__type")
+    type_info = _fetch_varonis_type(session, token, type_name)
     if not type_info:
         print(f"[-] Type '{type_name}' not found in the Varonis GraphQL schema.")
         return
@@ -362,6 +361,45 @@ def run_varonis_type_introspection(type_name):
         print("  enum values:")
         for enum_value in type_info["enumValues"]:
             print(f"    - {enum_value['name']}")
+
+def _fetch_varonis_type(session, token, type_name):
+    result = submit_varonis_graphql(session, token, TYPE_INTROSPECTION_QUERY, {"typeName": type_name})
+    return result.get("data", {}).get("__type")
+
+# Kinds that don't need further drill-down when exploring nested field types.
+_LEAF_KINDS = {"SCALAR", "ENUM"}
+
+def run_varonis_schema_explorer(root_type_name, max_depth=2):
+    """Recursively introspect a type and its object/input/enum-typed fields (up
+    to max_depth) in one pass, to map out nested result/filter shapes without
+    needing a round trip per nested type name."""
+    session = get_resilient_session()
+    token = get_varonis_token(session)
+    seen = set()
+
+    def explore(type_name, indent, remaining_depth):
+        if not type_name or type_name in seen:
+            return
+        seen.add(type_name)
+        type_info = _fetch_varonis_type(session, token, type_name)
+        if not type_info:
+            print(f"{indent}(type '{type_name}' not found)")
+            return
+        print(f"{indent}{type_info['name']} ({type_info['kind']}):")
+        for field in (type_info.get("inputFields") or type_info.get("fields") or []):
+            field_type = field.get("type") or {}
+            field_type_name = _graphql_type_name(field_type)
+            print(f"{indent}  - {field['name']}: {field_type_name}")
+            kind = field_type.get("kind")
+            inner_kind = (field_type.get("ofType") or {}).get("kind")
+            resolved_kind = inner_kind if kind in ("NON_NULL", "LIST") else kind
+            if resolved_kind not in _LEAF_KINDS and remaining_depth > 0:
+                explore(field_type_name, indent + "    ", remaining_depth - 1)
+        if type_info.get("enumValues"):
+            print(f"{indent}  enum values: {[e['name'] for e in type_info['enumValues']]}")
+
+    explore(root_type_name, "", max_depth)
+
 
 def check_varonis_connectivity(session):
     """Verify the Varonis API key can be exchanged for a bearer token (real auth check)."""
@@ -451,7 +489,16 @@ if __name__ == "__main__":
         metavar="TYPE_NAME",
         help="Dump a specific Varonis GraphQL type's fields/enum values (e.g. an input filter type named in an error) and exit",
     )
+    parser.add_argument(
+        "--explore-type",
+        metavar="TYPE_NAME",
+        help="Recursively dump a Varonis GraphQL type and its nested object/enum-typed fields (2 levels deep) and exit",
+    )
     args = parser.parse_args()
+
+    if args.explore_type:
+        run_varonis_schema_explorer(args.explore_type)
+        raise SystemExit(0)
 
     if args.introspect_type:
         run_varonis_type_introspection(args.introspect_type)

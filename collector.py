@@ -193,6 +193,37 @@ def poll_varonis_job(session, token, job_id):
     """Poll a previously submitted Varonis job for results (step 3 of 3)."""
     return submit_varonis_graphql(session, token, EVENTS_QUERY_JOB, {"jobId": job_id})
 
+INTROSPECTION_QUERY = """
+query IntrospectionQuery {
+  __schema {
+    queryType {
+      fields {
+        name
+        description
+        args { name type { name kind ofType { name kind } } }
+        type { name kind ofType { name kind } }
+      }
+    }
+  }
+}
+"""
+
+def run_varonis_introspection():
+    """Dump the Varonis GraphQL query schema so real queries (e.g. stale-data
+    reporting) can be discovered without needing access to the Varonis web UI."""
+    session = get_resilient_session()
+    token = get_varonis_token(session)
+    result = submit_varonis_graphql(session, token, INTROSPECTION_QUERY)
+    fields = result.get("data", {}).get("__schema", {}).get("queryType", {}).get("fields", [])
+    if not fields:
+        print("[-] No query fields returned -- introspection may be disabled on this tenant.")
+        return
+    print(f"[+] {len(fields)} top-level Varonis GraphQL query fields:")
+    for field in fields:
+        type_info = field.get("type", {})
+        type_name = type_info.get("name") or (type_info.get("ofType") or {}).get("name") or type_info.get("kind")
+        print(f"  - {field['name']} -> {type_name}: {field.get('description') or '(no description)'}")
+
 def check_varonis_connectivity(session):
     """Verify the Varonis API key can be exchanged for a bearer token (real auth check)."""
     try:
@@ -267,7 +298,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Test authentication against OneFS and Varonis, then exit (no polling, no DB writes)",
     )
+    parser.add_argument(
+        "--introspect-varonis",
+        action="store_true",
+        help="Dump the Varonis GraphQL query schema (to find the real stale-data query) and exit",
+    )
     args = parser.parse_args()
+
+    if args.introspect_varonis:
+        run_varonis_introspection()
+        raise SystemExit(0)
 
     if args.check_connectivity:
         success = run_connectivity_check()

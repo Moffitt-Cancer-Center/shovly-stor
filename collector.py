@@ -305,10 +305,17 @@ query IntrospectionQuery {
 }
 """
 
-def _graphql_type_name(type_info):
-    """Best-effort readable type name from a GraphQL introspection type ref (unwraps NON_NULL/LIST)."""
+def _unwrap_graphql_type(type_info):
+    """Peel away NON_NULL/LIST wrappers to find the innermost named type ref."""
     type_info = type_info or {}
-    return type_info.get("name") or (type_info.get("ofType") or {}).get("name") or type_info.get("kind")
+    while type_info.get("kind") in ("NON_NULL", "LIST") and type_info.get("ofType"):
+        type_info = type_info["ofType"]
+    return type_info
+
+def _graphql_type_name(type_info):
+    """Best-effort readable type name from a GraphQL introspection type ref (unwraps NON_NULL/LIST chains)."""
+    inner = _unwrap_graphql_type(type_info)
+    return inner.get("name") or inner.get("kind")
 
 def run_varonis_introspection():
     """Dump the Varonis GraphQL query schema so real queries (e.g. stale-data
@@ -334,11 +341,11 @@ query TypeIntrospection($typeName: String!) {
     kind
     inputFields {
       name
-      type { name kind ofType { name kind ofType { name kind } } }
+      type { name kind ofType { name kind ofType { name kind ofType { name kind } } } }
     }
     fields {
       name
-      type { name kind ofType { name kind ofType { name kind } } }
+      type { name kind ofType { name kind ofType { name kind ofType { name kind } } } }
     }
     enumValues { name }
   }
@@ -366,13 +373,11 @@ def _fetch_varonis_type(session, token, type_name):
     result = submit_varonis_graphql(session, token, TYPE_INTROSPECTION_QUERY, {"typeName": type_name})
     return result.get("data", {}).get("__type")
 
-# Kinds that don't need further drill-down when exploring nested field types.
-_LEAF_KINDS = {"SCALAR", "ENUM"}
-
 def run_varonis_schema_explorer(root_type_name, max_depth=2):
-    """Recursively introspect a type and its object/input/enum-typed fields (up
-    to max_depth) in one pass, to map out nested result/filter shapes without
-    needing a round trip per nested type name."""
+    """Recursively introspect a type and its object/input-typed fields (up to
+    max_depth) in one pass, to map out nested result/filter shapes without
+    needing a round trip per nested type name. Enum fields are always expanded
+    to show their values, regardless of remaining depth."""
     session = get_resilient_session()
     token = get_varonis_token(session)
     seen = set()
@@ -388,12 +393,13 @@ def run_varonis_schema_explorer(root_type_name, max_depth=2):
         print(f"{indent}{type_info['name']} ({type_info['kind']}):")
         for field in (type_info.get("inputFields") or type_info.get("fields") or []):
             field_type = field.get("type") or {}
-            field_type_name = _graphql_type_name(field_type)
+            inner = _unwrap_graphql_type(field_type)
+            field_type_name = inner.get("name") or inner.get("kind")
             print(f"{indent}  - {field['name']}: {field_type_name}")
-            kind = field_type.get("kind")
-            inner_kind = (field_type.get("ofType") or {}).get("kind")
-            resolved_kind = inner_kind if kind in ("NON_NULL", "LIST") else kind
-            if resolved_kind not in _LEAF_KINDS and remaining_depth > 0:
+            resolved_kind = inner.get("kind")
+            if resolved_kind == "ENUM":
+                explore(field_type_name, indent + "    ", 0)
+            elif resolved_kind not in ("SCALAR", "ENUM") and remaining_depth > 0:
                 explore(field_type_name, indent + "    ", remaining_depth - 1)
         if type_info.get("enumValues"):
             print(f"{indent}  enum values: {[e['name'] for e in type_info['enumValues']]}")

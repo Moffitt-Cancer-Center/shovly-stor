@@ -14,6 +14,27 @@ security = HTTPBasic()
 templates = Jinja2Templates(directory="templates")
 DB_PATH = os.getenv("SHOVLY_DB_PATH", "data/Shovly-stor")
 
+def init_db():
+    """Create the data dir/metrics table if collector.py hasn't run yet, so the dashboard never 500s on a missing table."""
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS metrics (
+            username TEXT PRIMARY KEY,
+            usage_tb REAL,
+            limit_tb REAL,
+            stale_data_pct REAL,
+            iops INTEGER,
+            grace_period TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
     correct_user = secrets.compare_digest(credentials.username, os.getenv("ADMIN_USER", "admin"))
     correct_pass = secrets.compare_digest(credentials.password, os.getenv("ADMIN_PASSWORD", "secret"))

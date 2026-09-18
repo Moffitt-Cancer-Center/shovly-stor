@@ -11,9 +11,9 @@ load_dotenv(override=True)  # .env must win over any stray shell-exported vars (
 
 ONEFS_URL = os.getenv("ONEFS_URL", "https://isilon.local:8080")
 # METRICS_USER must be a real InsightIQ account (InsightIQ uses per-user accounts,
-# not a generic shared service-account name) -- this deployment's dedicated
-# long-term read-only account is "shanecorder".
-USER = os.getenv("METRICS_USER", "shanecorder")
+# not a generic shared service-account name) -- configure a dedicated read-only
+# account for this in .env.
+USER = os.getenv("METRICS_USER", "")
 PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 # Varonis authenticates via API key only, not username/password: the key is
@@ -29,10 +29,14 @@ VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
 # Confirmed via browser DevTools: InsightIQ authenticates with a session cookie
 # ("insightiq_auth", a JWT) obtained from a login endpoint -- NOT per-request HTTP
-# Basic auth. Login URL confirmed via DevTools; request body shape (field names)
-# is still unconfirmed -- adjust the json= payload in get_insightiq_session() below
-# once you've captured it (see README Troubleshooting).
-ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/security-iam/v1/auth/session")
+# Basic auth. Confirmed via curl probing: GET .../auth/session returns
+# {"message": "Invalid token or Session does not exist."} (a session-check/whoami
+# route, not the login route), while GET .../auth/login returns 405 Method Not
+# Allowed (the route exists but only accepts POST) -- so /auth/login is the login
+# endpoint. Request body shape (field names) is still unconfirmed -- adjust the
+# json= payload in get_insightiq_session() below once you've captured it (see
+# README Troubleshooting).
+ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/security-iam/v1/auth/login")
 
 # Confirmed via browser DevTools Network tab against the InsightIQ web UI:
 # GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<id>&start_time=<epoch>&end_time=<epoch>

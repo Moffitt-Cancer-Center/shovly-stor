@@ -41,7 +41,7 @@ The source repository mirrors this layout directly: `templates/dashboard.html`, 
 ### 1. Prerequisites
 
 - A Linux server (Ubuntu/Debian/RHEL-based) with root or sudo privileges.
-- Network access to your Dell OneFS API endpoint using a dedicated read-only InsightIQ account (`METRICS_USER`/`METRICS_PASSWORD` -- for this deployment, the account `shanecorder` with a read-only role).
+- Network access to your Dell OneFS API endpoint using a dedicated read-only InsightIQ account (`METRICS_USER`/`METRICS_PASSWORD`).
 - Network access to your Varonis DatAdvantage API endpoint using a valid API key (username/password is not supported by Varonis).
 
 ### 2. Automated Installation
@@ -72,7 +72,7 @@ sudo nano /opt/shovly-stor/.env
 
 ```
 ONEFS_URL=https://isilon.local:8080
-METRICS_USER=shanecorder
+METRICS_USER=YourInsightIQUsername
 METRICS_PASSWORD=YourSecureProductionPasswordHere
 ONEFS_CLUSTER_ID=YourInsightIQClusterGuid
 VARONIS_URL=https://varonis.local
@@ -81,7 +81,7 @@ ADMIN_USER=admin
 ADMIN_PASSWORD=SuperSecretAdminPassword
 ```
 
-`METRICS_USER` / `METRICS_PASSWORD` authenticate only against the OneFS API. InsightIQ uses real per-user accounts (not a generic shared "service account" username) -- for this deployment, `shanecorder` is the long-term dedicated read-only account. Varonis does not accept username/password credentials — `VARONIS_API_KEY` is exchanged for a short-lived bearer token (see [Varonis Authentication](#varonis-authentication) below). `VARONIS_URL` is your tenant's base URL (e.g. `https://moffitt.varonis.io`), without an `/api` suffix.
+`METRICS_USER` / `METRICS_PASSWORD` authenticate only against the OneFS API. InsightIQ uses real per-user accounts (not a generic shared "service account" username) -- use a dedicated read-only account. Varonis does not accept username/password credentials — `VARONIS_API_KEY` is exchanged for a short-lived bearer token (see [Varonis Authentication](#varonis-authentication) below). `VARONIS_URL` is your tenant's base URL (e.g. `https://your-tenant.varonis.io`), without an `/api` suffix.
 
 After modifying the file, restart the background collector and web services to apply changes:
 
@@ -105,7 +105,7 @@ Create a `.env` file in the project root (it is not generated for you outside of
 ADMIN_USER=admin
 ADMIN_PASSWORD=ChooseYourOwnLocalPassword
 ONEFS_URL=https://isilon.local:8080
-METRICS_USER=shanecorder
+METRICS_USER=YourInsightIQUsername
 METRICS_PASSWORD=YourSecureProductionPasswordHere
 ONEFS_CLUSTER_ID=YourInsightIQClusterGuid
 VARONIS_URL=https://varonis.local
@@ -173,7 +173,7 @@ sudo venv/bin/python collector.py --check-connectivity
 
 It reports `OK`, an authentication failure (bad credentials/API key), or a network/TLS error for each service independently. If your OneFS or Varonis endpoint uses a self-signed certificate, set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks).
 
-**`ONEFS_CHECK_PATH` (`/insightiq/rest/reporting/v1/capacity/graph_data` by default) is InsightIQ's confirmed reporting API path** — captured from the browser DevTools Network tab against the InsightIQ web UI, not the PowerScale/OneFS Platform API (PAPI). The host at `10.15.25.120:8000` serves the InsightIQ Angular reporting appliance itself (`<title>InsightIQ</title>`, a `login` JS bundle), a separate product from raw PowerScale cluster nodes — PAPI paths like `/platform/1/quota/quotas` will always 404 there regardless of credentials.
+**`ONEFS_CHECK_PATH` (`/insightiq/rest/reporting/v1/capacity/graph_data` by default) is InsightIQ's confirmed reporting API path** — captured from the browser DevTools Network tab against the InsightIQ web UI, not the PowerScale/OneFS Platform API (PAPI). Your InsightIQ appliance host serves the Angular reporting UI itself (`<title>InsightIQ</title>`, a `login` JS bundle), a separate product from raw PowerScale cluster nodes — PAPI paths like `/platform/1/quota/quotas` will always 404 there regardless of credentials.
 
 The real endpoint requires a `cluster` query param (the cluster GUID InsightIQ reports on) plus a `start_time`/`end_time` epoch window:
 
@@ -184,14 +184,16 @@ GET /insightiq/rest/reporting/v1/capacity/graph_data?cluster=<cluster-guid>&star
 Set the cluster GUID in `.env`:
 
 ```
-ONEFS_CLUSTER_ID=04bf1be5052efe9de06516251b54e9494f6a
+ONEFS_CLUSTER_ID=YourInsightIQClusterGuid
 ```
 
 **Confirmed via DevTools: InsightIQ authenticates with a session cookie (`insightiq_auth`, a JWT), not per-request HTTP Basic auth.** The cookie is issued by a login endpoint and carries the user's role (e.g. `read-only`) and a `csrf` claim. `collector.py` now performs a login step (`get_insightiq_session()`) with `METRICS_USER`/`METRICS_PASSWORD` before calling the reporting API, reusing the resulting cookie on the same `requests.Session`.
 
-**`ONEFS_LOGIN_PATH` (`/insightiq/rest/security-iam/v1/auth/session` by default) is confirmed via DevTools as the login/session endpoint URL, but its request body shape (field names) is not yet confirmed.** `get_insightiq_session()` currently POSTs `{"username": ..., "password": ...}` as JSON — adjust the payload in `collector.py` once you've captured the real body (see below). Never paste the resulting `insightiq_auth` cookie/JWT value anywhere (chat, commits, logs) — it's a live credential equivalent to a session password; if one is ever exposed, log out of that InsightIQ session or wait for it to expire.
+**`ONEFS_LOGIN_PATH` (`/insightiq/rest/security-iam/v1/auth/login` by default) is the confirmed login endpoint; its request body shape (field names) is not yet confirmed.** This was narrowed down via curl: `GET .../auth/session` (with `-u user:pass`) returns `{"message": "Invalid token or Session does not exist."}` -- a session-check/whoami route, not a login route -- while `GET .../auth/login` returns `405 Method Not Allowed`, confirming the route exists but only accepts `POST`. `get_insightiq_session()` currently POSTs `{"username": ..., "password": ...}` as JSON — adjust the payload in `collector.py` once you've captured the real body (see below). Never paste the resulting `insightiq_auth` cookie/JWT value anywhere (chat, commits, logs) — it's a live credential equivalent to a session password; if one is ever exposed, log out of that InsightIQ session or wait for it to expire.
 
-To capture the request body shape in DevTools: open the Network tab, submit the InsightIQ login form, click the `auth/session` request in the list, and open its **Payload** (Chrome) or **Request** (Firefox) tab — it shows the exact field names sent (e.g. `username`/`password` vs. `user`/`pass`, and whether it's JSON or form-encoded). Share those field *names* (redact the password value) so the payload in `get_insightiq_session()` can be corrected if needed.
+If the appliance presents a self-signed certificate (curl reports `SSL certificate problem: self signed certificate`), set `VERIFY_TLS=false` in `.env` (accepted only for trusted internal networks) -- otherwise every request from `collector.py` will fail with an SSL verification error before it even reaches the login logic.
+
+To capture the request body shape in DevTools: open the Network tab, submit the InsightIQ login form, click the `auth/login` request in the list, and open its **Payload** (Chrome) or **Request** (Firefox) tab — it shows the exact field names sent (e.g. `username`/`password` vs. `user`/`pass`, and whether it's JSON or form-encoded). Share those field *names* (redact the password value) so the payload in `get_insightiq_session()` can be corrected if needed.
 
 If you need to override the reporting path or point at a different InsightIQ deployment:
 
@@ -222,6 +224,10 @@ Varonis uses a 3-step, job-based GraphQL flow — not simple Bearer-with-API-key
 - Under systemd, `WorkingDirectory=/opt/shovly-stor` is set for you, so confirm `/opt/shovly-stor/.env` exists and contains the values you expect.
 - After editing `.env`, you must restart the service (`sudo systemctl restart shovly-web.service`) — changes are only read at process startup.
 - When running locally per the [Local Development](#local-development) steps, you must create your own `.env` in the directory you launch `uvicorn` from; without it, the credentials silently fall back to `admin` / `secret`.
+
+### Browser shows "Internal Server Error" on the dashboard
+
+This is almost always caused by the `metrics` table not existing yet in the SQLite cache. `dashboard.html` calls `/api/users` on page load, and that route raises an uncaught `sqlite3.OperationalError: no such table: metrics` (surfaced by FastAPI as a generic 500) if `collector.py`'s daemon mode has never run to create the table via `init_db()` -- e.g. right after a fresh install/clone, before `data/Shovly-stor` exists. `main.py` now creates the `data/` directory and the `metrics` table itself at startup, so restarting `shovly-web.service` (or re-running `uvicorn`) after upgrading should resolve it. If it persists, check `journalctl -u shovly-web.service -f` for the actual traceback and confirm `SHOVLY_DB_PATH` (if set) points to a writable location.
 
 ### `user_storage_cli.py: Permission denied`
 

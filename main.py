@@ -79,4 +79,6 @@ def get_user_metrics(username: str, admin: str = Depends(verify_admin)):
 
 @app.get("/", response_class=HTMLResponse, summary="Load the web dashboard")
 def dashboard_home(request: Request, admin: str = Depends(verify_admin)):
-    return templates.TemplateResponse(request, "dashboard.html")
+    # Old-style (name, context) call -- works across old and new Starlette versions,
+    # unlike the newer TemplateResponse(request, name) signature.
+    return templates.TemplateResponse("dashboard.html", {"request": request})

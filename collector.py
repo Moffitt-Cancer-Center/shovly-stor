@@ -45,6 +45,13 @@ ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/security-iam/v
 ONEFS_CLUSTER_ID = os.getenv("ONEFS_CLUSTER_ID", "")
 ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/insightiq/rest/reporting/v1/capacity/graph_data")
 
+# The insightiq_auth JWT reportedly carries a "csrf" claim; some cookie-session
+# APIs require that value echoed back as a header on every request (double-submit
+# CSRF protection), which would explain a 401 on the reporting call even after a
+# successful login. Header name is unconfirmed -- check the working request in
+# DevTools and override here if it differs (see README Troubleshooting).
+ONEFS_CSRF_HEADER = os.getenv("ONEFS_CSRF_HEADER", "X-CSRF-Token")
+
 # Internal appliances often present self-signed certs; allow opt-out per environment
 VERIFY_TLS = os.getenv("VERIFY_TLS", "true").strip().lower() not in ("false", "0", "no")
 if not VERIFY_TLS:
@@ -82,6 +89,9 @@ def get_resilient_session():
 def get_insightiq_session(session):
     """Log in to InsightIQ so `session` carries the insightiq_auth cookie for subsequent calls.
 
+    Returns the CSRF token value if one was found in the login response's cookies
+    or JSON body, else None.
+
     ONEFS_LOGIN_PATH/payload format are unconfirmed -- capture the real login POST
     from DevTools and adjust this if it 404s/401s.
     """
@@ -95,6 +105,18 @@ def get_insightiq_session(session):
     if "insightiq_auth" not in session.cookies:
         raise ValueError("Login succeeded but no insightiq_auth cookie was set -- check ONEFS_LOGIN_PATH/payload")
 
+    for name, value in session.cookies.items():
+        if "csrf" in name.lower() or "xsrf" in name.lower():
+            return value
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    for key in ("csrf", "csrfToken", "csrf_token"):
+        if key in body:
+            return body[key]
+    return None
+
 def check_onefs_connectivity(session):
     """Log in to InsightIQ and request the reporting API to confirm reachability/auth."""
     if not ONEFS_CLUSTER_ID:
@@ -102,15 +124,19 @@ def check_onefs_connectivity(session):
     now = int(time.time())
     params = {"cluster": ONEFS_CLUSTER_ID, "start_time": now - 3600, "end_time": now}
     try:
-        get_insightiq_session(session)
+        csrf_token = get_insightiq_session(session)
+        headers = {ONEFS_CSRF_HEADER: csrf_token} if csrf_token else {}
         resp = session.get(
             f"{ONEFS_URL}{ONEFS_CHECK_PATH}",
             params=params,
+            headers=headers,
             verify=VERIFY_TLS,
             timeout=10,
         )
         if resp.status_code == 401:
-            return False, "Reachable, but authentication failed (check METRICS_USER/METRICS_PASSWORD)"
+            if csrf_token:
+                return False, f"Reachable, login succeeded, but {ONEFS_CHECK_PATH} still returned 401 with a {ONEFS_CSRF_HEADER} header sent -- check the header name/value via DevTools, or the account's role permissions"
+            return False, f"Reachable, login succeeded, but {ONEFS_CHECK_PATH} returned 401 -- no CSRF token was found on the login response; capture the required header from a working request in DevTools and set ONEFS_CSRF_HEADER, or check the account's role permissions"
         if resp.status_code == 404:
             return False, f"Reachable, but {ONEFS_CHECK_PATH} returned 404 -- wrong path/port for this appliance, set ONEFS_CHECK_PATH"
         resp.raise_for_status()

@@ -195,6 +195,12 @@ If the appliance presents a self-signed certificate (curl reports `SSL certifica
 
 To capture the request body shape in DevTools: open the Network tab, submit the InsightIQ login form, click the `auth/login` request in the list, and open its **Payload** (Chrome) or **Request** (Firefox) tab — it shows the exact field names sent (e.g. `username`/`password` vs. `user`/`pass`, and whether it's JSON or form-encoded). Share those field *names* (redact the password value) so the payload in `get_insightiq_session()` can be corrected if needed.
 
+**Login succeeds (no exception) but the reporting call still returns 401** -- this points at CSRF, not bad credentials: the `insightiq_auth` JWT reportedly carries a `csrf` claim, and Angular apps commonly require that value echoed back as a request header (double-submit CSRF protection) on every subsequent call. `get_insightiq_session()` now looks for a CSRF value in a `csrf`/`xsrf`-named cookie or in the login response's JSON body, and sends it back via the `ONEFS_CSRF_HEADER` header (`X-CSRF-Token` by default) on the reporting request. If the connectivity check still 401s after this:
+
+- In DevTools, find a working (200) reporting request and check its **Request Headers** for any non-standard header (e.g. `X-XSRF-TOKEN`, `csrf-token`) — set `ONEFS_CSRF_HEADER` in `.env` to match if it differs from `X-CSRF-Token`.
+- Confirm the login response actually contains a CSRF value in a cookie or JSON field named `csrf`/`csrfToken`/`csrf_token`; adjust `get_insightiq_session()` if it uses a different field name.
+- Rule out a permissions issue: confirm the read-only account's role is actually allowed to call `ONEFS_CHECK_PATH` and not just view the UI.
+
 If you need to override the reporting path or point at a different InsightIQ deployment:
 
 - Override it per-environment without editing code: set `ONEFS_CHECK_PATH` in `.env`.

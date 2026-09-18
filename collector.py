@@ -240,14 +240,18 @@ VARONIS_RESOURCES_POLL_MAX_ATTEMPTS = int(os.getenv("VARONIS_RESOURCES_POLL_MAX_
 def start_varonis_resources_job(session, token):
     """Kick off the Varonis file-resource scan job (step 1); returns the jobId."""
     result = submit_varonis_graphql(session, token, RESOURCES_ASYNC_QUERY)
-    return result["data"]["resourcesAsync"]["jobId"]
+    job_id = result["data"]["resourcesAsync"]["jobId"]
+    print(f"    [*] Started Varonis resource scan job {job_id} -- this can take a while on large file servers.")
+    return job_id
 
 def poll_varonis_resources_job(session, token, job_id):
     """Poll the file-resource scan job until it completes; returns the flat list of file results."""
-    for _ in range(VARONIS_RESOURCES_POLL_MAX_ATTEMPTS):
+    for attempt in range(VARONIS_RESOURCES_POLL_MAX_ATTEMPTS):
         result = submit_varonis_graphql(session, token, RESOURCES_QUERY_JOB, {"jobId": job_id})
         job = result["data"]["resourcesQueryJob"]
         status = (job.get("status") or "").upper()
+        print(f"    [*] Varonis resource scan {job_id}: status={status or 'UNKNOWN'} "
+              f"progress={job.get('progress')} (attempt {attempt + 1}/{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS})")
         if status in ("COMPLETED", "DONE", "SUCCEEDED", "FINISHED"):
             return job.get("results") or []
         if status in ("FAILED", "ERROR", "CANCELLED"):

@@ -217,21 +217,12 @@ def poll_varonis_job(session, token, job_id):
 # fields exist on ResourceQueryJob, so a single job poll is assumed to return
 # the full result set for the scanned file server. The filter argument itself
 # is named "where" (confirmed via the GraphQL error), not "filter".
-RESOURCES_ASYNC_QUERY = """
-query StartResourceQuery {
-  resourcesAsync(where: { type: { eq: FILE } }) {
-    jobId
-    jobStatus
-  }
-}
-"""
-
-RESOURCES_QUERY_JOB = """
-query GetResourceSizes($jobId: String!) {
-  resourcesQueryJob(jobId: $jobId) {
-    jobId
-    jobStatus
-    jobProgress
+#
+# resourcesAsync must select the exact same "results" fields as
+# resourcesQueryJob -- the job is precomputed from the fields requested on the
+# initial async call (confirmed via the "You must select 'results' field"
+# error), it isn't chosen later when polling.
+RESOURCE_RESULT_FIELDS = """
     results {
       id
       path
@@ -242,8 +233,27 @@ query GetResourceSizes($jobId: String!) {
       resourceOwner { name samAccountName }
       dataSource { id name }
     }
-  }
-}
+"""
+
+RESOURCES_ASYNC_QUERY = f"""
+query StartResourceQuery {{
+  resourcesAsync(where: {{ type: {{ eq: FILE }} }}) {{
+    jobId
+    jobStatus
+{RESOURCE_RESULT_FIELDS}
+  }}
+}}
+"""
+
+RESOURCES_QUERY_JOB = f"""
+query GetResourceSizes($jobId: String!) {{
+  resourcesQueryJob(jobId: $jobId) {{
+    jobId
+    jobStatus
+    jobProgress
+{RESOURCE_RESULT_FIELDS}
+  }}
+}}
 """
 
 VARONIS_RESOURCES_POLL_INTERVAL = float(os.getenv("VARONIS_RESOURCES_POLL_INTERVAL", "5"))

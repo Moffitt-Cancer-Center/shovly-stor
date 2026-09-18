@@ -246,7 +246,7 @@ query StartResourceQuery {{
 """
 
 RESOURCES_QUERY_JOB = f"""
-query GetResourceSizes($jobId: String!) {{
+query GetResourceSizes($jobId: ID!) {{
   resourcesQueryJob(jobId: $jobId) {{
     jobId
     jobStatus

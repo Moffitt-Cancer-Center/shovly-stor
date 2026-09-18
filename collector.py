@@ -177,8 +177,18 @@ def submit_varonis_graphql(session, token, query, variables=None):
         verify=VERIFY_TLS,
         timeout=15,
     )
-    resp.raise_for_status()
-    return resp.json()
+    if not resp.ok:
+        # raise_for_status() alone discards the response body -- GraphQL APIs
+        # put the actual cause (bad field/argument/enum value) in there.
+        try:
+            detail = resp.json()
+        except ValueError:
+            detail = resp.text
+        raise requests.exceptions.HTTPError(f"{resp.status_code} error from {resp.url}: {detail}", response=resp)
+    payload = resp.json()
+    if payload.get("errors"):
+        raise ValueError(f"Varonis GraphQL returned errors: {payload['errors']}")
+    return payload
 
 EVENTS_QUERY_JOB = """
 query EventsQueryJob($jobId: ID!) {
@@ -295,6 +305,11 @@ query IntrospectionQuery {
 }
 """
 
+def _graphql_type_name(type_info):
+    """Best-effort readable type name from a GraphQL introspection type ref (unwraps NON_NULL/LIST)."""
+    type_info = type_info or {}
+    return type_info.get("name") or (type_info.get("ofType") or {}).get("name") or type_info.get("kind")
+
 def run_varonis_introspection():
     """Dump the Varonis GraphQL query schema so real queries (e.g. stale-data
     reporting) can be discovered without needing access to the Varonis web UI."""
@@ -307,9 +322,46 @@ def run_varonis_introspection():
         return
     print(f"[+] {len(fields)} top-level Varonis GraphQL query fields:")
     for field in fields:
-        type_info = field.get("type", {})
-        type_name = type_info.get("name") or (type_info.get("ofType") or {}).get("name") or type_info.get("kind")
-        print(f"  - {field['name']} -> {type_name}: {field.get('description') or '(no description)'}")
+        type_name = _graphql_type_name(field.get("type"))
+        args = field.get("args") or []
+        args_str = ", ".join(f"{arg['name']}: {_graphql_type_name(arg.get('type'))}" for arg in args)
+        print(f"  - {field['name']}({args_str}) -> {type_name}: {field.get('description') or '(no description)'}")
+
+TYPE_INTROSPECTION_QUERY = """
+query TypeIntrospection($typeName: String!) {
+  __type(name: $typeName) {
+    name
+    kind
+    inputFields {
+      name
+      type { name kind ofType { name kind ofType { name kind } } }
+    }
+    fields {
+      name
+      type { name kind ofType { name kind ofType { name kind } } }
+    }
+    enumValues { name }
+  }
+}
+"""
+
+def run_varonis_type_introspection(type_name):
+    """Dump a specific Varonis GraphQL type's fields/enum values (e.g. an input
+    filter type named in a GraphQL error) so arguments can be built without guessing."""
+    session = get_resilient_session()
+    token = get_varonis_token(session)
+    result = submit_varonis_graphql(session, token, TYPE_INTROSPECTION_QUERY, {"typeName": type_name})
+    type_info = result.get("data", {}).get("__type")
+    if not type_info:
+        print(f"[-] Type '{type_name}' not found in the Varonis GraphQL schema.")
+        return
+    print(f"[+] {type_info['name']} ({type_info['kind']}):")
+    for field in (type_info.get("inputFields") or type_info.get("fields") or []):
+        print(f"  - {field['name']}: {_graphql_type_name(field.get('type'))}")
+    if type_info.get("enumValues"):
+        print("  enum values:")
+        for enum_value in type_info["enumValues"]:
+            print(f"    - {enum_value['name']}")
 
 def check_varonis_connectivity(session):
     """Verify the Varonis API key can be exchanged for a bearer token (real auth check)."""
@@ -394,7 +446,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Dump the Varonis GraphQL query schema (to find the real stale-data query) and exit",
     )
+    parser.add_argument(
+        "--introspect-type",
+        metavar="TYPE_NAME",
+        help="Dump a specific Varonis GraphQL type's fields/enum values (e.g. an input filter type named in an error) and exit",
+    )
     args = parser.parse_args()
+
+    if args.introspect_type:
+        run_varonis_type_introspection(args.introspect_type)
+        raise SystemExit(0)
 
     if args.introspect_varonis:
         run_varonis_introspection()

@@ -209,17 +209,18 @@ def poll_varonis_job(session, token, job_id):
     """Poll a previously submitted Varonis job for results (step 3 of 3)."""
     return submit_varonis_graphql(session, token, EVENTS_QUERY_JOB, {"jobId": job_id})
 
-# Confirmed via GraphQL introspection (--introspect-varonis): resourcesAsync/
-# resourcesQueryJob is a file-scan job that returns per-file size, staleness
-# (>180 days unaccessed, per isStale) and owner identity -- exactly what's needed
-# to compute real per-user usage_tb/stale_data_pct. No pagination fields are
-# present in this query, so a single job poll is assumed to return the full
-# result set for the scanned file server.
+# Confirmed via GraphQL introspection (--explore-type ResourceQueryJob):
+# resourcesAsync/resourcesQueryJob is a file-scan job whose Resource results use
+# resourceSize (not sizeInBytes), accessDate/modifyDate (not lastAccessed/
+# lastModified), and resourceOwner.samAccountName (not owner.accountName).
+# isStale and dataSource{id,name} matched the initial guess. No pagination
+# fields exist on ResourceQueryJob, so a single job poll is assumed to return
+# the full result set for the scanned file server.
 RESOURCES_ASYNC_QUERY = """
 query StartResourceQuery {
-  resourcesAsync(filter: { type: [FILE] }) {
+  resourcesAsync(filter: { type: { eq: FILE } }) {
     jobId
-    status
+    jobStatus
   }
 }
 """
@@ -228,16 +229,16 @@ RESOURCES_QUERY_JOB = """
 query GetResourceSizes($jobId: String!) {
   resourcesQueryJob(jobId: $jobId) {
     jobId
-    status
-    progress
+    jobStatus
+    jobProgress
     results {
       id
       path
-      sizeInBytes
-      lastAccessed
-      lastModified
+      resourceSize
+      accessDate
+      modifyDate
       isStale
-      owner { name accountName }
+      resourceOwner { name samAccountName }
       dataSource { id name }
     }
   }
@@ -255,16 +256,24 @@ def start_varonis_resources_job(session, token):
     return job_id
 
 def poll_varonis_resources_job(session, token, job_id):
-    """Poll the file-resource scan job until it completes; returns the flat list of file results."""
+    """Poll the file-resource scan job until it completes; returns the flat list of file results.
+
+    Confirmed via --explore-type QueryJobStatus: enum values are CANCELED,
+    COMPLETED, EXECUTING, FAILED, PARTIAL_RESULTS, PENDING.
+    """
     for attempt in range(VARONIS_RESOURCES_POLL_MAX_ATTEMPTS):
         result = submit_varonis_graphql(session, token, RESOURCES_QUERY_JOB, {"jobId": job_id})
         job = result["data"]["resourcesQueryJob"]
-        status = (job.get("status") or "").upper()
+        status = (job.get("jobStatus") or "").upper()
         print(f"    [*] Varonis resource scan {job_id}: status={status or 'UNKNOWN'} "
-              f"progress={job.get('progress')} (attempt {attempt + 1}/{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS})")
-        if status in ("COMPLETED", "DONE", "SUCCEEDED", "FINISHED"):
+              f"progress={job.get('jobProgress')} (attempt {attempt + 1}/{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS})")
+        if status == "COMPLETED":
             return job.get("results") or []
-        if status in ("FAILED", "ERROR", "CANCELLED"):
+        if status == "PARTIAL_RESULTS":
+            print(f"    [!] Varonis resource scan {job_id} returned PARTIAL_RESULTS -- "
+                  "using the results available; some data may be missing.")
+            return job.get("results") or []
+        if status in ("FAILED", "CANCELED"):
             raise RuntimeError(f"Varonis resources job {job_id} ended with status {status}")
         time.sleep(VARONIS_RESOURCES_POLL_INTERVAL)
     raise TimeoutError(f"Varonis resources job {job_id} did not complete within "
@@ -273,17 +282,17 @@ def poll_varonis_resources_job(session, token, job_id):
 def get_varonis_usage_by_user(session, token):
     """Run the file-resource scan and aggregate size/staleness per owner account.
 
-    Returns {accountName: {"usage_bytes": int, "stale_bytes": int}}.
+    Returns {samAccountName: {"usage_bytes": int, "stale_bytes": int}}.
     """
     job_id = start_varonis_resources_job(session, token)
     results = poll_varonis_resources_job(session, token, job_id)
     usage_by_user = {}
     for item in results:
-        owner = item.get("owner") or {}
-        account = owner.get("accountName") or owner.get("name")
+        owner = item.get("resourceOwner") or {}
+        account = owner.get("samAccountName") or owner.get("name")
         if not account:
             continue
-        size = item.get("sizeInBytes") or 0
+        size = item.get("resourceSize") or 0
         entry = usage_by_user.setdefault(account, {"usage_bytes": 0, "stale_bytes": 0})
         entry["usage_bytes"] += size
         if item.get("isStale"):

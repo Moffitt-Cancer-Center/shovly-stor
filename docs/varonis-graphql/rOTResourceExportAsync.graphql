@@ -1,0 +1,11 @@
+query StartROTExport {
+  rOTResourceExportAsync(
+    filter: {
+      isStale: true
+      # Optional: filter by data source or duplication flag
+    }
+  ) {
+    jobId
+    status
+  }
+}

@@ -1,0 +1,11 @@
+query StartResourceQuery {
+  resourcesAsync(
+    filter: {
+      type: [FILE]
+      # Optional: minimum threshold or path targeting
+    }
+  ) {
+    jobId
+    status
+  }
+}

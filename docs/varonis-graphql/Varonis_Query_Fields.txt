@@ -1,0 +1,293 @@
+[+] 49 top-level Varonis GraphQL query fields:
+  - alertedEventsAsync -> EventQueryJob: Initiates a job to retrieve alerted event details like ID, event time, affected resource, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the alertedEventsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call alertedEventsQueryJob with this job ID to obtain the job status and results containing alerted event details.
+ - Maximum return limit up to 10,000 alerted events of maximum 200 alerts.
+
+
+**Returns:**
+Returns a jobId. Call alertedEventsQueryJob with this jobId to obtain the job status and results containing alerted event details.
+  - alertedEventsQueryJob -> EventQueryJob: Initiates a job to retrieve alerted event details like ID, event time, affected resource, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the alertedEventsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call alertedEventsQueryJob with this job ID to obtain the job status and results containing alerted event details.
+ - Maximum return limit up to 10,000 alerted events of maximum 200 alerts.
+
+
+**Returns:**
+Returns a jobId. Call alertedEventsQueryJob with this jobId to obtain the job status and results containing alerted event details.
+  - alertsAsync -> AlertQueryJob: Initiates a job to retrieve alerts based on specified filter criteria.
+This API call starts a job to retrieve up to 10,000 alerts that match the provided filter input (Alert_FilterInput).
+It returns the job ID, status, and progress.
+Use the retrieved job ID with alertsQueryJob to obtain the results containing alert details, including attributes such as ID, severity, time, and status.
+  - alertsQueryJob -> AlertQueryJob: Initiates a job to retrieve alerts based on specified filter criteria.
+This API call starts a job to retrieve up to 10,000 alerts that match the provided filter input (Alert_FilterInput).
+It returns the job ID, status, and progress.
+Use the retrieved job ID with alertsQueryJob to obtain the results containing alert details, including attributes such as ID, severity, time, and status.
+  - auditExportAsync -> IExportJobOfAuditEvent: Initiates a job to retrieve audit event details like generation date time, operation, type, description, affected entity type, etc.
+Note: This API initiates a job to retrieve the requested data, and returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.        
+
+
+**Returns:**
+Returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.
+  - closingReasons -> NON_NULL: Returns the list of all alert closing reasons, including both Varonis and user-defined closing reasons.
+  - dataSourcesAsync -> FileServerQueryJob: Initiates a job to retrieve data source details like ID and name.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the dataSourceQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call dataSourceQueryJob with this job ID to obtain the job status and results containing data source details.
+
+
+**Returns:**
+Returns a jobId. Call dataSourceQueryJob with this jobId to obtain the job status and results containing data source details.
+  - dataSourcesQueryJob -> FileServerQueryJob: Initiates a job to retrieve data source details like ID and name.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the dataSourceQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call dataSourceQueryJob with this job ID to obtain the job status and results containing data source details.
+
+
+**Returns:**
+Returns a jobId. Call dataSourceQueryJob with this jobId to obtain the job status and results containing data source details.
+  - eventsAsync -> EventQueryJob: Initiates a job to retrieve event details like generation time, actor identity, affected resource, event status, device information, location, etc.
+Optional filters can be applied.
+Note:
+ - Include in this request the event fields that should be returned by the eventsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call eventsQueryJob with this job ID to obtain the job status and final results.
+ - Maximum return limit of 50,000 events. If the number of matching events exceeds this limit, only the first 50,000 will be returned. Additional events will be excluded from the response.
+
+
+**Returns:**
+Returns a jobId. Call eventsQueryJob with this jobId to obtain the job status and final results.
+  - eventsExportAsync -> IExportJobOfEvent: Initiates a job to retrieve event details like generation time, actor identity, affected resource, event status, device information, location, etc.
+Optional filters can be applied.
+Note: This API initiates a job to retrieve the requested data, and returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.        
+
+
+**Returns:**
+Returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.
+  - eventsQueryJob -> EventQueryJob: Initiates a job to retrieve event details like generation time, actor identity, affected resource, event status, device information, location, etc.
+Optional filters can be applied.
+Note:
+ - Include in this request the event fields that should be returned by the eventsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call eventsQueryJob with this job ID to obtain the job status and final results.
+ - Maximum return limit of 50,000 events. If the number of matching events exceeds this limit, only the first 50,000 will be returned. Additional events will be excluded from the response.
+
+
+**Returns:**
+Returns a jobId. Call eventsQueryJob with this jobId to obtain the job status and final results.
+  - exportJob -> ExportJob: (no description)
+  - exportNextAsync -> ExportJob: (no description)
+  - getActionRequests -> GetActionRequestsResponse: (no description)
+  - getActionsRequestsLastUpdateTime -> GetActionsRequestsLastUpdateTimeResponse: (no description)
+  - getOrganizationalUnits -> GetOrganizationalUnitsResponse: (no description)
+  - governedGroupAuthorizationRuleMutationJob -> GovernedGroupAuthorizationRuleMutationJob: This GovernedGroupAuthorizationRuleMutationJob uses the job ID returned by the GovernedGroupAuthorizationRuleMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedGroupAuthorizationRuleMutationJob fields that you sent in the original GovernedGroupAuthorizationRuleMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedGroupAuthorizationRuleMutationJob results.
+  - governedGroupAuthorizationRulesAsync -> GovernedGroupAuthorizationRuleQueryJob: Retrieves group authorization rule details commonly used to track and manage group authorization rules, such as name, authorization type, authorizers, and approval details.
+
+
+**Returns:**
+A list of governed group authorization rules matching the filter criteria.
+  - governedGroupAuthorizationRulesQueryJob -> GovernedGroupAuthorizationRuleQueryJob: Retrieves group authorization rule details commonly used to track and manage group authorization rules, such as name, authorization type, authorizers, and approval details.
+
+
+**Returns:**
+A list of governed group authorization rules matching the filter criteria.
+  - governedGroupAutomaticRulesAsync -> GovernedGroupAutomaticRuleQueryJob: Retrieves group automatic rule details commonly used to track and manage automatic rules for groups, such as expiration date, name, time interval, and auto approval details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed group automatic rules matching the filter criteria.
+  - governedGroupAutomaticRulesQueryJob -> GovernedGroupAutomaticRuleQueryJob: Retrieves group automatic rule details commonly used to track and manage automatic rules for groups, such as expiration date, name, time interval, and auto approval details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed group automatic rules matching the filter criteria.
+  - governedGroupLocationMutationJob -> GovernedGroupLocationMutationJob: This GovernedGroupLocationMutationJob uses the job ID returned by the GovernedGroupLocationMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedGroupLocationMutationJob fields that you sent in the original GovernedGroupLocationMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedGroupLocationMutationJob results.
+  - governedGroupMutationJob -> GovernedGroupMutationJob: This GovernedGroupMutationJob uses the job ID returned by the GovernedGroupMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedGroupMutationJob fields that you sent in the original GovernedGroupMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedGroupMutationJob results.
+  - governedGroupsAsync -> GovernedGroupQueryJob: Retrieves information about governed groups, including commonly accessed details like owners, authorizers, group name, is the group governed and bypass status. Refer to the detailed API reference for a comprehensive list of available properties
+
+
+**Returns:**
+A list of governed groups matching the filter criteria.
+  - governedGroupsQueryJob -> GovernedGroupQueryJob: Retrieves information about governed groups, including commonly accessed details like owners, authorizers, group name, is the group governed and bypass status. Refer to the detailed API reference for a comprehensive list of available properties
+
+
+**Returns:**
+A list of governed groups matching the filter criteria.
+  - governedRequestMutationJob -> GovernedRequestMutationJob: This GovernedRequestMutationJob uses the job ID returned by the GovernedRequestMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedRequestMutationJob fields that you sent in the original GovernedRequestMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedRequestMutationJob results.
+  - governedRequestsAsync -> GovernedRequestQueryJob: Retrieves request details commonly used to track and manage requests, such as status, type, approvers, and last modified details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed requests matching the filter criteria.
+  - governedRequestsQueryJob -> GovernedRequestQueryJob: Retrieves request details commonly used to track and manage requests, such as status, type, approvers, and last modified details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed requests matching the filter criteria.
+  - governedResourceAuthorizationRuleMutationJob -> GovernedResourceAuthorizationRuleMutationJob: This GovernedResourceAuthorizationRuleMutationJob uses the job ID returned by the GovernedResourceAuthorizationRuleMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedResourceAuthorizationRuleMutationJob fields that you sent in the original GovernedResourceAuthorizationRuleMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedResourceAuthorizationRuleMutationJob results.
+  - governedResourceAuthorizationRulesAsync -> GovernedResourceAuthorizationRuleQueryJob: Retrieves authorization rule details commonly used to track and manage authorization rules, such as expiration date, name, authorization type, and approval details.
+
+
+**Returns:**
+A list of governed authorization rules matching the filter criteria.
+  - governedResourceAuthorizationRulesQueryJob -> GovernedResourceAuthorizationRuleQueryJob: Retrieves authorization rule details commonly used to track and manage authorization rules, such as expiration date, name, authorization type, and approval details.
+
+
+**Returns:**
+A list of governed authorization rules matching the filter criteria.
+  - governedResourceAutomaticRulesAsync -> GovernedResourceAutomaticRuleQueryJob: Retrieves rule details commonly used to track and manage automatic rules, such as expiration date, name, time interval, and auto approval details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed automatic rules matching the filter criteria.
+  - governedResourceAutomaticRulesQueryJob -> GovernedResourceAutomaticRuleQueryJob: Retrieves rule details commonly used to track and manage automatic rules, such as expiration date, name, time interval, and auto approval details. For complete properties, consult the detailed API reference
+
+
+**Returns:**
+A list of governed automatic rules matching the filter criteria.
+  - governedResourceLocationMutationJob -> GovernedResourceLocationMutationJob: This GovernedResourceLocationMutationJob uses the job ID returned by the GovernedResourceLocationMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedResourceLocationMutationJob fields that you sent in the original GovernedResourceLocationMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedResourceLocationMutationJob results.
+  - governedResourceMutationJob -> GovernedResourceMutationJob: This GovernedResourceMutationJob uses the job ID returned by the GovernedResourceMutationJobAsync asynchronous operation and returns results as per the original filters.
+Include in this request the same GovernedResourceMutationJob fields that you sent in the original GovernedResourceMutationJobAsync request.
+Note: Call this query until the job status isn't PENDING.
+
+
+**Returns:**
+Returns the job status and GovernedResourceMutationJob results.
+  - governedResourcesAsync -> GovernedResourceQueryJob: Retrieves information about governed resources, including common details such as ownership, authorizers, resource name, path, and permissions. Additional properties are available and fully documented in the detailed API reference.
+
+
+**Returns:**
+A list of governed resources matching the filter criteria.
+  - governedResourcesQueryJob -> GovernedResourceQueryJob: Retrieves information about governed resources, including common details such as ownership, authorizers, resource name, path, and permissions. Additional properties are available and fully documented in the detailed API reference.
+
+
+**Returns:**
+A list of governed resources matching the filter criteria.
+  - identitiesAsync -> UserQueryJob: Initiates a job to retrieve identity details like account name, email, department, job title, manager, directory type, affiliation, privileged identity type, password status, account expiration, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the identitiesQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call usersQueryJob with this job ID to obtain the job status and results containing identity details.
+
+
+**Returns:**
+Returns a jobId. Call identitiesQueryJob with this jobId to obtain the job status and results containing identity details.
+  - identitiesQueryJob -> UserQueryJob: Initiates a job to retrieve identity details like account name, email, department, job title, manager, directory type, affiliation, privileged identity type, password status, account expiration, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the identitiesQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call usersQueryJob with this job ID to obtain the job status and results containing identity details.
+
+
+**Returns:**
+Returns a jobId. Call identitiesQueryJob with this jobId to obtain the job status and results containing identity details.
+  - membershipsAsync -> GroupMembershipQueryJob: Initiates a job to retrieve membership details such as group name, member name, membership level, staleness status, directory service, affiliation, and related properties.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the membershipsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call membershipsQueryJob with this job ID to obtain the job status and results containing membership details.
+ - Results are subject to the configured maximum return limit. If more memberships match than can be returned, only the first set will be included in the response.
+
+
+**Returns:**
+Returns a jobId. Call membershipsQueryJob with this jobId to obtain the job status and results containing membership details.
+  - membershipsQueryJob -> GroupMembershipQueryJob: Initiates a job to retrieve membership details such as group name, member name, membership level, staleness status, directory service, affiliation, and related properties.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the membershipsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call membershipsQueryJob with this job ID to obtain the job status and results containing membership details.
+ - Results are subject to the configured maximum return limit. If more memberships match than can be returned, only the first set will be included in the response.
+
+
+**Returns:**
+Returns a jobId. Call membershipsQueryJob with this jobId to obtain the job status and results containing membership details.
+  - physicalPermissionsAsync -> PhysicalPermissionQueryJob: Initiates a job to retrieve physical permission details like data source, identity, resource path, permission type, permission flags, inheritance information, staleness status, creation date, expiration date, sharing link details, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the physicalPermissionsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call physicalPermissionsQueryJob with this job ID to obtain the job status and results containing physical permission details.
+
+
+**Returns:**
+Returns a jobId. Call physicalPermissionsQueryJob with this jobId to obtain the job status and results containing physical permission details.
+  - physicalPermissionsQueryJob -> PhysicalPermissionQueryJob: Initiates a job to retrieve physical permission details like data source, identity, resource path, permission type, permission flags, inheritance information, staleness status, creation date, expiration date, sharing link details, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the event fields that should be returned by the physicalPermissionsQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call physicalPermissionsQueryJob with this job ID to obtain the job status and results containing physical permission details.
+
+
+**Returns:**
+Returns a jobId. Call physicalPermissionsQueryJob with this jobId to obtain the job status and results containing physical permission details.
+  - resourcesAsync -> ResourceQueryJob: Initiates a job to retrieve resource details like path, type, classification, sensitivity, exposure level, resource owner information, permissions, status, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the resourcesQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call resourcesQueryJob with this job ID to obtain the job status and results containing resource details.
+
+
+**Returns:**
+Returns a jobId. Call resourcesQueryJob with this jobId to obtain the job status and results containing resource details.
+  - resourcesQueryJob -> ResourceQueryJob: Initiates a job to retrieve resource details like path, type, classification, sensitivity, exposure level, resource owner information, permissions, status, etc.
+Optional filters can be applied.
+Note: 
+ - Include in this request the fields that should be returned by the resourcesQueryJob. 
+ - This API initiates a job to retrieve the requested data, and returns a job ID. Call resourcesQueryJob with this job ID to obtain the job status and results containing resource details.
+
+
+**Returns:**
+Returns a jobId. Call resourcesQueryJob with this jobId to obtain the job status and results containing resource details.
+  - rOTResourceExportAsync -> IExportJobOfROTResource: Initiates a job to retrieve ROT resource details like sensitivity, duplications, staleness, classification and file information.
+Optional filters can be applied. (TBD)
+Note: This API initiates a job to retrieve the requested data, and returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.        
+
+
+**Returns:**
+Returns a job ID. Call exportJob with this job ID to obtain the job status and results download URL.
+  - scheduledSearches -> ScheduledSearch: Returns the list of all scheduled searches (this is the same list as the My Scheduled Searches page of the Varonis Web Interface).
+The list provides search details such as its ID, last run, data-driven status, and more.
+Optional filters can be supplied.
+  - scheduledSearchExecutions -> ScheduledSearch_Execution: Returns the execution details of one or more scheduled searches by specifying their IDs.
+Additional optional filters can be supplied, for example to limit the results to a relevant time span.
+Example: If you provide the scheduled search ID of a weekly search, and request executions within the past 28 days, this API returns four executions.
+  - threatDetectionPolicies -> NON_NULL: Returns a list of threat detection policies. You can use the threat detection policy ID to filter alerts when using alertsAsync.

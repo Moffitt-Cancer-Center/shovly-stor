@@ -45,6 +45,12 @@ ONEFS_LOGIN_PATH = os.getenv("ONEFS_LOGIN_PATH", "/insightiq/rest/security-iam/v
 ONEFS_CLUSTER_ID = os.getenv("ONEFS_CLUSTER_ID", "")
 ONEFS_CHECK_PATH = os.getenv("ONEFS_CHECK_PATH", "/insightiq/rest/reporting/v1/capacity/graph_data")
 
+# Per-user quota limits come from InsightIQ, but that's a per-directory quota
+# report that hasn't been wired in yet (path -> username mapping unconfirmed).
+# Until then, use a single flat default so the dashboard's usage/limit math
+# doesn't divide by zero -- NOT a real per-user quota.
+ONEFS_DEFAULT_QUOTA_TB = float(os.getenv("ONEFS_DEFAULT_QUOTA_TB", "10"))
+
 # The insightiq_auth JWT reportedly carries a "csrf" claim; some cookie-session
 # APIs require that value echoed back as a header on every request (double-submit
 # CSRF protection), which would explain a 401 on the reporting call even after a
@@ -193,6 +199,83 @@ def poll_varonis_job(session, token, job_id):
     """Poll a previously submitted Varonis job for results (step 3 of 3)."""
     return submit_varonis_graphql(session, token, EVENTS_QUERY_JOB, {"jobId": job_id})
 
+# Confirmed via GraphQL introspection (--introspect-varonis): resourcesAsync/
+# resourcesQueryJob is a file-scan job that returns per-file size, staleness
+# (>180 days unaccessed, per isStale) and owner identity -- exactly what's needed
+# to compute real per-user usage_tb/stale_data_pct. No pagination fields are
+# present in this query, so a single job poll is assumed to return the full
+# result set for the scanned file server.
+RESOURCES_ASYNC_QUERY = """
+query StartResourceQuery {
+  resourcesAsync(filter: { type: [FILE] }) {
+    jobId
+    status
+  }
+}
+"""
+
+RESOURCES_QUERY_JOB = """
+query GetResourceSizes($jobId: String!) {
+  resourcesQueryJob(jobId: $jobId) {
+    jobId
+    status
+    progress
+    results {
+      id
+      path
+      sizeInBytes
+      lastAccessed
+      lastModified
+      isStale
+      owner { name accountName }
+      dataSource { id name }
+    }
+  }
+}
+"""
+
+VARONIS_RESOURCES_POLL_INTERVAL = float(os.getenv("VARONIS_RESOURCES_POLL_INTERVAL", "5"))
+VARONIS_RESOURCES_POLL_MAX_ATTEMPTS = int(os.getenv("VARONIS_RESOURCES_POLL_MAX_ATTEMPTS", "60"))
+
+def start_varonis_resources_job(session, token):
+    """Kick off the Varonis file-resource scan job (step 1); returns the jobId."""
+    result = submit_varonis_graphql(session, token, RESOURCES_ASYNC_QUERY)
+    return result["data"]["resourcesAsync"]["jobId"]
+
+def poll_varonis_resources_job(session, token, job_id):
+    """Poll the file-resource scan job until it completes; returns the flat list of file results."""
+    for _ in range(VARONIS_RESOURCES_POLL_MAX_ATTEMPTS):
+        result = submit_varonis_graphql(session, token, RESOURCES_QUERY_JOB, {"jobId": job_id})
+        job = result["data"]["resourcesQueryJob"]
+        status = (job.get("status") or "").upper()
+        if status in ("COMPLETED", "DONE", "SUCCEEDED", "FINISHED"):
+            return job.get("results") or []
+        if status in ("FAILED", "ERROR", "CANCELLED"):
+            raise RuntimeError(f"Varonis resources job {job_id} ended with status {status}")
+        time.sleep(VARONIS_RESOURCES_POLL_INTERVAL)
+    raise TimeoutError(f"Varonis resources job {job_id} did not complete within "
+                        f"{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS * VARONIS_RESOURCES_POLL_INTERVAL:.0f}s")
+
+def get_varonis_usage_by_user(session, token):
+    """Run the file-resource scan and aggregate size/staleness per owner account.
+
+    Returns {accountName: {"usage_bytes": int, "stale_bytes": int}}.
+    """
+    job_id = start_varonis_resources_job(session, token)
+    results = poll_varonis_resources_job(session, token, job_id)
+    usage_by_user = {}
+    for item in results:
+        owner = item.get("owner") or {}
+        account = owner.get("accountName") or owner.get("name")
+        if not account:
+            continue
+        size = item.get("sizeInBytes") or 0
+        entry = usage_by_user.setdefault(account, {"usage_bytes": 0, "stale_bytes": 0})
+        entry["usage_bytes"] += size
+        if item.get("isStale"):
+            entry["stale_bytes"] += size
+    return usage_by_user
+
 INTROSPECTION_QUERY = """
 query IntrospectionQuery {
   __schema {
@@ -253,27 +336,31 @@ def run_connectivity_check():
 def poll_storage_apis():
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting metrics collection cycle...")
     session = get_resilient_session()
-    
+
     try:
-        # Example InsightIQ capacity call: log in for the insightiq_auth cookie,
-        # then request the reporting API on the same session (no Basic auth).
-        # get_insightiq_session(session)
-        # params = {"cluster": ONEFS_CLUSTER_ID, "start_time": start_epoch, "end_time": end_epoch}
-        # response = session.get(f"{ONEFS_URL}{ONEFS_CHECK_PATH}", params=params, verify=VERIFY_TLS, timeout=10)
+        # Real Varonis flow: exchange the API key for a token, then run the
+        # resourcesAsync/resourcesQueryJob file-scan job to get per-owner size
+        # and staleness totals.
+        token = get_varonis_token(session)
+        usage_by_user = get_varonis_usage_by_user(session, token)
 
-        # Example real Varonis flow: exchange API key for a token, submit a
-        # GraphQL query to get a jobId, then poll poll_varonis_job() for results.
-        # token = get_varonis_token(session)
-        # job = submit_varonis_graphql(session, token, MY_QUERY)
-        # results = poll_varonis_job(session, token, job["jobId"])
+        if not usage_by_user:
+            print("[!] Varonis resource scan returned no owned files -- nothing to write this cycle.")
+            return
 
-        # Simulated payload representing processed aggregation of Varonis + InsightIQ
-        simulated_data = [
-            ("jdoe", 4.2, 5.0, 35.0, 125, "None"),
-            ("asmith", 8.9, 10.0, 12.0, 310, "4 days"),
-            ("bwayne", 14.5, 15.0, 65.0, 42, "None")
-        ]
-        
+        # TODO: usage_tb/limit_tb should come from InsightIQ's per-user (per-
+        # directory) quota report once that endpoint/path convention is
+        # confirmed. For now, usage_tb is derived from Varonis-owned file
+        # bytes (a reasonable stand-in) and limit_tb uses a flat placeholder.
+        # IOPS has no confirmed per-user source yet, so it's left at 0.
+        rows = []
+        for username, totals in usage_by_user.items():
+            usage_bytes = totals["usage_bytes"]
+            stale_bytes = totals["stale_bytes"]
+            usage_tb = usage_bytes / 1e12
+            stale_pct = (stale_bytes / usage_bytes * 100) if usage_bytes else 0.0
+            rows.append((username, usage_tb, ONEFS_DEFAULT_QUOTA_TB, round(stale_pct, 1), 0, "Unknown"))
+
         conn = get_db()
         conn.executemany("""
             INSERT INTO metrics (username, usage_tb, limit_tb, stale_data_pct, iops, grace_period)
@@ -284,10 +371,10 @@ def poll_storage_apis():
                 stale_data_pct=excluded.stale_data_pct,
                 iops=excluded.iops,
                 grace_period=excluded.grace_period
-        """, simulated_data)
+        """, rows)
         conn.commit()
         conn.close()
-        print("[+] Metrics collection cycle completed successfully.")
+        print(f"[+] Metrics collection cycle completed successfully ({len(rows)} users).")
     except Exception as e:
         print(f"[-] Error during metrics collection: {e}")
 

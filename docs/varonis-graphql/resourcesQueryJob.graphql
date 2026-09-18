@@ -1,0 +1,23 @@
+query GetRecourceSizes($jobId: String!) {
+  resourcesQueryJob(jobId: $jobId) {
+    jobId
+    status
+    progress
+    results {
+      id
+      path
+      sizeInBytes
+      lastAccessed
+      lastModified
+      isStale
+      owner {
+        name
+        accountName
+      }
+      dataSource {
+        id
+        name
+      }
+    }
+  }
+}

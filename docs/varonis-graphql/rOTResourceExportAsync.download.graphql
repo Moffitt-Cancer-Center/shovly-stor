@@ -1,0 +1,9 @@
+query CheckROTExportJob($jobId: String!) {
+  exportJob(jobId: $jobId) {
+    jobId
+    status
+    progress
+    downloadUrl
+    errorMessage
+  }
+}

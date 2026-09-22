@@ -223,15 +223,15 @@ Varonis uses a 3-step, job-based GraphQL flow — not simple Bearer-with-API-key
 
 `collector.py --check-connectivity` only exercises step 1 (token exchange) to confirm the API key and network path are valid. The real polling cycle (`poll_storage_apis()`) runs the full 3-step flow via `get_varonis_usage_by_user()`, scanning file resources and aggregating size/staleness per owner.
 
-By default this scans every file resource the API key can see across every data source. To scope it down to a specific data source and path (e.g. only one OneFS cluster's zones), set in `.env`:
+By default this scans every file resource the API key can see across every data source. To scope it down to a specific data source and set of paths (defaults already match the OneFS zones this project cares about), set in `.env`:
 
 ```
 VARONIS_DATA_SOURCE_NAME=ISLN22
 VARONIS_DATA_SOURCE_TYPE=DELL_EMC_POWER_SCALE_ONE_FS_ISILON
-VARONIS_PATH_CONTAINS=ifs/zones
+VARONIS_PATH_PREFIXES=/ifs/zones/cln01/data/apps,/ifs/zones/cln01/data/dept,/ifs/zones/cln01/data/project,/ifs/zones/cln01/data/systems,/ifs/zones/res01/data/apps,/ifs/zones/res01/data/archive,/ifs/zones/res01/data/dept,/ifs/zones/res01/data/lab,/ifs/zones/res01/data/project,/ifs/zones/res01/data/research,/ifs/zones/res01/data/systems,/ifs/zones/vs1/data/apps
 ```
 
-This filtering happens client-side in `get_varonis_usage_by_user()` (matching on the `dataSource.name`/`dataSource.type`/`path` already fetched per result) rather than via the GraphQL `where` clause, since that avoids depending on the exact shape of Varonis's nested filter-input types. Leave any of the three blank to skip that check. Use `--explore-type DataSourceType` to see all valid `VARONIS_DATA_SOURCE_TYPE` enum values for your tenant.
+This filtering happens client-side in `get_varonis_usage_by_user()` (matching on the `dataSource.name`/`dataSource.type`/`path` already fetched per result) rather than via the GraphQL `where` clause, since that avoids depending on the exact shape of Varonis's nested filter-input types. A file is included if its path contains any one of the comma-separated `VARONIS_PATH_PREFIXES` entries (substring match, not strict prefix, since the exact text Varonis returns before `/ifs/...` isn't confirmed). Leave any of the three variables blank to skip that check. Use `--explore-type DataSourceType` to see all valid `VARONIS_DATA_SOURCE_TYPE` enum values for your tenant.
 
 ### Dashboard login (`admin`/password) doesn't work
 

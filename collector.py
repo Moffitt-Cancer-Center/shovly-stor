@@ -34,7 +34,30 @@ VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 # Leave a value blank in .env to skip that filter entirely.
 VARONIS_DATA_SOURCE_NAME = os.getenv("VARONIS_DATA_SOURCE_NAME", "ISLN22")
 VARONIS_DATA_SOURCE_TYPE = os.getenv("VARONIS_DATA_SOURCE_TYPE", "DELL_EMC_POWER_SCALE_ONE_FS_ISILON")
-VARONIS_PATH_CONTAINS = os.getenv("VARONIS_PATH_CONTAINS", "ifs/zones")
+
+# Comma-separated list of path prefixes to include -- only files under one of
+# these paths are counted. Matched as a substring (not strict startswith)
+# since the exact prefix Varonis returns before "/ifs/..." (data source name,
+# drive letter, etc.) isn't confirmed. Leave blank to skip path scoping.
+_DEFAULT_VARONIS_PATHS = ",".join([
+    "/ifs/zones/cln01/data/apps",
+    "/ifs/zones/cln01/data/dept",
+    "/ifs/zones/cln01/data/project",
+    "/ifs/zones/cln01/data/systems",
+    "/ifs/zones/res01/data/apps",
+    "/ifs/zones/res01/data/archive",
+    "/ifs/zones/res01/data/dept",
+    "/ifs/zones/res01/data/lab",
+    "/ifs/zones/res01/data/project",
+    "/ifs/zones/res01/data/research",
+    "/ifs/zones/res01/data/systems",
+    "/ifs/zones/vs1/data/apps",
+])
+VARONIS_PATH_PREFIXES = [
+    p.strip().replace("\\", "/").lower()
+    for p in os.getenv("VARONIS_PATH_PREFIXES", _DEFAULT_VARONIS_PATHS).split(",")
+    if p.strip()
+]
 
 # Confirmed via browser DevTools: InsightIQ authenticates with a session cookie
 # ("insightiq_auth", a JWT) obtained from a login endpoint -- NOT per-request HTTP
@@ -300,21 +323,21 @@ def poll_varonis_resources_job(session, token, job_id):
                         f"{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS * VARONIS_RESOURCES_POLL_INTERVAL:.0f}s")
 
 def _matches_resource_scope(item):
-    """Apply VARONIS_DATA_SOURCE_NAME/TYPE/VARONIS_PATH_CONTAINS scoping to one result row."""
+    """Apply VARONIS_DATA_SOURCE_NAME/TYPE/VARONIS_PATH_PREFIXES scoping to one result row."""
     data_source = item.get("dataSource") or {}
     if VARONIS_DATA_SOURCE_NAME and data_source.get("name") != VARONIS_DATA_SOURCE_NAME:
         return False
     if VARONIS_DATA_SOURCE_TYPE and data_source.get("type") != VARONIS_DATA_SOURCE_TYPE:
         return False
-    if VARONIS_PATH_CONTAINS:
+    if VARONIS_PATH_PREFIXES:
         path = (item.get("path") or "").replace("\\", "/").lower()
-        if VARONIS_PATH_CONTAINS.replace("\\", "/").lower() not in path:
+        if not any(prefix in path for prefix in VARONIS_PATH_PREFIXES):
             return False
     return True
 
 def get_varonis_usage_by_user(session, token):
     """Run the file-resource scan and aggregate size/staleness per owner account,
-    scoped to VARONIS_DATA_SOURCE_NAME/VARONIS_DATA_SOURCE_TYPE/VARONIS_PATH_CONTAINS.
+    scoped to VARONIS_DATA_SOURCE_NAME/VARONIS_DATA_SOURCE_TYPE/VARONIS_PATH_PREFIXES.
 
     Returns {samAccountName: {"usage_bytes": int, "stale_bytes": int}}.
     """

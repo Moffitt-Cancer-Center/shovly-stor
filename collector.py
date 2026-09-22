@@ -323,16 +323,23 @@ def get_varonis_usage_by_user(session, token):
     in_scope = [item for item in results if _matches_resource_scope(item)]
     print(f"    [*] {len(in_scope)}/{len(results)} scanned files matched the configured data source/path scope.")
     usage_by_user = {}
+    unowned_count = 0
     for item in in_scope:
+        # "Owner" = the file's resourceOwner (the AD/identity account Varonis
+        # attributes as owner, via samAccountName or name) -- this is what
+        # results get grouped into per-user rows by.
         owner = item.get("resourceOwner") or {}
         account = owner.get("samAccountName") or owner.get("name")
         if not account:
+            unowned_count += 1
             continue
         size = item.get("resourceSize") or 0
         entry = usage_by_user.setdefault(account, {"usage_bytes": 0, "stale_bytes": 0})
         entry["usage_bytes"] += size
         if item.get("isStale"):
             entry["stale_bytes"] += size
+    if unowned_count:
+        print(f"    [*] {unowned_count}/{len(in_scope)} in-scope files had no resourceOwner identity and were skipped.")
     return usage_by_user
 
 INTROSPECTION_QUERY = """
@@ -490,7 +497,9 @@ def poll_storage_apis():
         usage_by_user = get_varonis_usage_by_user(session, token)
 
         if not usage_by_user:
-            print("[!] Varonis resource scan returned no owned files -- nothing to write this cycle.")
+            print("[!] No files with a resolvable owner matched the current scope this cycle -- "
+                  "see the 'matched the configured data source/path scope' and 'no resourceOwner identity' "
+                  "lines above to tell which stage filtered everything out. Nothing to write.")
             return
 
         # TODO: usage_tb/limit_tb should come from InsightIQ's per-user (per-

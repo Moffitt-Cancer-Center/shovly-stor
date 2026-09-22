@@ -219,9 +219,19 @@ Varonis uses a 3-step, job-based GraphQL flow — not simple Bearer-with-API-key
 
 1. **Get a token**: `POST {VARONIS_URL}/api/authentication/api_keys/token` with header `x-api-key: <VARONIS_API_KEY>` and form-urlencoded body `grant_type=varonis_custom`. Returns a short-lived bearer token. Implemented as `get_varonis_token()` in `collector.py`.
 2. **Submit a query**: `POST {VARONIS_URL}/api/graphql` with `Authorization: Bearer <token>` and a GraphQL query body describing the data you want. Returns a `jobId`. Implemented as `submit_varonis_graphql()`.
-3. **Poll for results**: `POST {VARONIS_URL}/api/graphql` again with the `EventsQueryJob($jobId: ID!)` query and the `jobId` from step 2 to retrieve results once the job completes. Implemented as `poll_varonis_job()`.
+3. **Poll for results**: `POST {VARONIS_URL}/api/graphql` again with the `resourcesQueryJob($jobId: ID!)` query and the `jobId` from step 2 to retrieve results once the job completes. Implemented as `poll_varonis_resources_job()`.
 
-`collector.py --check-connectivity` only exercises step 1 (token exchange) to confirm the API key and network path are valid. Steps 2 and 3 require a specific GraphQL query for the metrics you want to pull, which aren't wired into the simulated polling cycle yet.
+`collector.py --check-connectivity` only exercises step 1 (token exchange) to confirm the API key and network path are valid. The real polling cycle (`poll_storage_apis()`) runs the full 3-step flow via `get_varonis_usage_by_user()`, scanning file resources and aggregating size/staleness per owner.
+
+By default this scans every file resource the API key can see across every data source. To scope it down to a specific data source and path (e.g. only one OneFS cluster's zones), set in `.env`:
+
+```
+VARONIS_DATA_SOURCE_NAME=ISLN22
+VARONIS_DATA_SOURCE_TYPE=DELL_EMC_POWER_SCALE_ONE_FS_ISILON
+VARONIS_PATH_CONTAINS=ifs/zones
+```
+
+This filtering happens client-side in `get_varonis_usage_by_user()` (matching on the `dataSource.name`/`dataSource.type`/`path` already fetched per result) rather than via the GraphQL `where` clause, since that avoids depending on the exact shape of Varonis's nested filter-input types. Leave any of the three blank to skip that check. Use `--explore-type DataSourceType` to see all valid `VARONIS_DATA_SOURCE_TYPE` enum values for your tenant.
 
 ### Dashboard login (`admin`/password) doesn't work
 

@@ -27,6 +27,15 @@ VARONIS_API_KEY = os.getenv("VARONIS_API_KEY", "")
 VARONIS_TOKEN_PATH = os.getenv("VARONIS_TOKEN_PATH", "/api/authentication/api_keys/token")
 VARONIS_GRAPHQL_PATH = os.getenv("VARONIS_GRAPHQL_PATH", "/api/graphql")
 
+# Scope the file-resource scan to a specific data source/path. Applied
+# client-side (not via the GraphQL "where" clause) since dataSource.name/type
+# and path are already fetched per-result, and re-guessing another nested
+# HotChocolate filter shape isn't worth another round of trial and error.
+# Leave a value blank in .env to skip that filter entirely.
+VARONIS_DATA_SOURCE_NAME = os.getenv("VARONIS_DATA_SOURCE_NAME", "ISLN22")
+VARONIS_DATA_SOURCE_TYPE = os.getenv("VARONIS_DATA_SOURCE_TYPE", "DELL_EMC_POWER_SCALE_ONE_FS_ISILON")
+VARONIS_PATH_CONTAINS = os.getenv("VARONIS_PATH_CONTAINS", "ifs/zones")
+
 # Confirmed via browser DevTools: InsightIQ authenticates with a session cookie
 # ("insightiq_auth", a JWT) obtained from a login endpoint -- NOT per-request HTTP
 # Basic auth. Confirmed via curl probing: GET .../auth/session returns
@@ -231,7 +240,7 @@ RESOURCE_RESULT_FIELDS = """
       modifyDate
       isStale
       resourceOwner { name samAccountName }
-      dataSource { id name }
+      dataSource { id name type }
     }
 """
 
@@ -290,15 +299,31 @@ def poll_varonis_resources_job(session, token, job_id):
     raise TimeoutError(f"Varonis resources job {job_id} did not complete within "
                         f"{VARONIS_RESOURCES_POLL_MAX_ATTEMPTS * VARONIS_RESOURCES_POLL_INTERVAL:.0f}s")
 
+def _matches_resource_scope(item):
+    """Apply VARONIS_DATA_SOURCE_NAME/TYPE/VARONIS_PATH_CONTAINS scoping to one result row."""
+    data_source = item.get("dataSource") or {}
+    if VARONIS_DATA_SOURCE_NAME and data_source.get("name") != VARONIS_DATA_SOURCE_NAME:
+        return False
+    if VARONIS_DATA_SOURCE_TYPE and data_source.get("type") != VARONIS_DATA_SOURCE_TYPE:
+        return False
+    if VARONIS_PATH_CONTAINS:
+        path = (item.get("path") or "").replace("\\", "/").lower()
+        if VARONIS_PATH_CONTAINS.replace("\\", "/").lower() not in path:
+            return False
+    return True
+
 def get_varonis_usage_by_user(session, token):
-    """Run the file-resource scan and aggregate size/staleness per owner account.
+    """Run the file-resource scan and aggregate size/staleness per owner account,
+    scoped to VARONIS_DATA_SOURCE_NAME/VARONIS_DATA_SOURCE_TYPE/VARONIS_PATH_CONTAINS.
 
     Returns {samAccountName: {"usage_bytes": int, "stale_bytes": int}}.
     """
     job_id = start_varonis_resources_job(session, token)
     results = poll_varonis_resources_job(session, token, job_id)
+    in_scope = [item for item in results if _matches_resource_scope(item)]
+    print(f"    [*] {len(in_scope)}/{len(results)} scanned files matched the configured data source/path scope.")
     usage_by_user = {}
-    for item in results:
+    for item in in_scope:
         owner = item.get("resourceOwner") or {}
         account = owner.get("samAccountName") or owner.get("name")
         if not account:

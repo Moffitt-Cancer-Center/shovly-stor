@@ -275,7 +275,7 @@ RESOURCE_RESULT_FIELDS = """
 """
 
 RESOURCES_ASYNC_QUERY = f"""
-query StartResourceQuery($dataSourceIds: [Int]) {{
+query StartResourceQuery($dataSourceIds: [Int!]) {{
   resourcesAsync(
     where: {{
       type: {{ eq: FILE }}

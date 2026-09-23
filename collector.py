@@ -361,7 +361,8 @@ def list_varonis_data_sources(session, token):
 def resolve_varonis_data_source_id(session, token):
     """Look up the numeric id for VARONIS_DATA_SOURCE_NAME (and
     VARONIS_DATA_SOURCE_TYPE if set), for resourcesAsync's where clause.
-    Returns None if unset or not found (scan proceeds unfiltered by data source)."""
+    Returns None if unset, not found, or not a valid Int (scan proceeds
+    unfiltered by data source rather than failing the whole cycle)."""
     if not VARONIS_DATA_SOURCE_NAME:
         return None
     for data_source in list_varonis_data_sources(session, token):
@@ -369,7 +370,13 @@ def resolve_varonis_data_source_id(session, token):
             continue
         if VARONIS_DATA_SOURCE_TYPE and data_source.get("type") != VARONIS_DATA_SOURCE_TYPE:
             continue
-        return data_source.get("id")
+        raw_id = data_source.get("id")
+        print(f"    [*] Resolved Varonis data source '{VARONIS_DATA_SOURCE_NAME}' -> id={raw_id!r} ({type(raw_id).__name__})")
+        try:
+            return int(raw_id)
+        except (TypeError, ValueError):
+            print(f"    [!] Data source id {raw_id!r} isn't a valid Int -- scanning all data sources instead.")
+            return None
     print(f"    [!] No Varonis data source named '{VARONIS_DATA_SOURCE_NAME}' "
           f"(type={VARONIS_DATA_SOURCE_TYPE or 'any'}) found -- scanning all data sources instead.")
     return None

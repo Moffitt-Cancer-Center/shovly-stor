@@ -1,0 +1,29 @@
+query ($dataSourceIds: [Int]) {
+  resourcesAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      classification: { totalRecordCount: { neq: 0 } }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      dataSource {
+        id
+        name
+        type
+      }
+      path
+      type
+      classification {
+        totalRecordCount
+        totalRecordCountInclSubfolders
+      }
+      exposureLevel
+      isUnique
+      isProtected
+      hasBrokenPermissions
+      isManaged
+    }
+  }
+}

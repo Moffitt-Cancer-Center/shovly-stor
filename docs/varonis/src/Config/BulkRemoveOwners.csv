@@ -1,0 +1,3 @@
+type,entity,owner
+folder,\\server\share\folder,domain.com\ownerToRemove
+group,domain.com\groupName,domain.com\ownerToRemove

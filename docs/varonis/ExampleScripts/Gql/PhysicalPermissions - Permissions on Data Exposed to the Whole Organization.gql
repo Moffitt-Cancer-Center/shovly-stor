@@ -1,0 +1,42 @@
+query ($dataSourceIds: [Int]) {
+  physicalPermissionsAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      resource: { exposureLevel: { in : [ORGANIZATION_WIDE] } }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      identity {
+        name
+        type
+        affiliation
+      }
+      resource {
+        path
+        name
+        type
+        isSensitive
+        classification {
+          totalRecordCount
+          category
+          results
+          totalRecordCountInclSubfolders
+        }
+      }
+      dataSource {
+        id
+        name
+        type
+      }
+      permissionMethod
+      permissionType
+      permissionFlag {
+        name
+      }
+      staleSince
+      isStalePermission
+    }
+  }
+}

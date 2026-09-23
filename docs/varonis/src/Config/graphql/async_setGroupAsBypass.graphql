@@ -1,0 +1,36 @@
+mutation UpdateGovernedGroupsAsync
+(
+    $groupName: String!
+    $groupDomain: String!
+    $isBypass: Boolean!
+)
+{
+    updateGovernedGroupsAsync(
+        updateGovernedGroupsInput: {
+            isBypass: $isBypass
+            group: { samAccountName: $groupName, directoryServices: { name: $groupDomain } }
+        }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            result {
+                isBypass
+                isGoverned
+                group {
+                    samAccountName
+                    directoryServices {
+                        name
+                    }
+                }
+            }
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

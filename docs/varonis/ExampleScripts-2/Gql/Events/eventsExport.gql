@@ -1,0 +1,64 @@
+query eventsExportAsync($data_source_id: Int, $gte: DateTime!, $lt: DateTime) {
+eventsExportAsync(mandatoryWhere: {
+      dataSourceId:       { eq: $data_source_id }
+      ingestionDateTime:  { gte: $gte, lt: $lt }
+      }) {
+      ... on ExportJobOfEvent {
+      dataUrl
+      hasMoreData
+      jobId
+      jobStatus
+      nextExportCursor
+        }
+    ... on Event {
+            actor {
+                name
+                samAccountName
+                distinguishedName
+                dnsDomain {
+                    name
+                }
+            }
+            affectedObjectName
+            affectedResource {
+                path
+                type
+                file {
+                    fileType
+                }
+                accessDate
+                modifyDate
+            }
+            alert {
+                id
+            }
+            applicationProtocol
+            clientIP
+            dataSource {
+                name
+                type
+            }
+            description
+            destination {
+                name
+            }
+            device {
+                externalIP {
+                    ip
+                }
+            }
+            generationTime {
+                dateTimeUtc
+            }
+            name {
+                eventName
+            }
+            session {
+                azureAuthentication {
+                    status
+                }
+            }
+            statusReason
+    }
+  }
+}

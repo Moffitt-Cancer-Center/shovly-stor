@@ -1,0 +1,6 @@
+{
+  "tenant": {
+    "url": "https://tenant.varonis.io",
+    "apiKey": "api_key"
+  }
+}

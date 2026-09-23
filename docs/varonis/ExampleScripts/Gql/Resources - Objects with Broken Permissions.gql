@@ -1,0 +1,28 @@
+query ($dataSourceIds: [Int]) {
+  resourcesAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      hasBrokenPermissions: { eq: true }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      dataSource {
+        id
+        name
+        type
+      }
+      path
+      type
+      isUnique
+      isProtected
+      isManaged
+      tags {
+        id
+        name
+      }
+      hasBrokenPermissions
+    }
+  }
+}

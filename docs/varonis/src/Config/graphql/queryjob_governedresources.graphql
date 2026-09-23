@@ -1,0 +1,24 @@
+query GovernedResourcesQueryJob($id: ID!) {
+    governedResourcesQueryJob(jobId: $id) {
+        jobId
+        jobStatus
+        results {
+            id
+            displayPath
+            isUndetected
+            isAllowDirectAcl
+            isRootResource
+            isGoverned
+            owners {
+                samAccountName
+            }
+             authorizers {
+                level
+                account {
+                    id
+                    samAccountName
+                }
+            }
+        }
+    }
+}

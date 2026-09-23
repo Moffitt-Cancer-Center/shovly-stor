@@ -1,0 +1,25 @@
+query {
+  identitiesAsync(
+    where: {
+      type: { eq: USER }
+      affiliation:  {
+         in: [GUEST, EXTERNAL]
+      }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      name
+      directoryServices {
+        name
+        directoryType {
+          name
+        }
+      }
+      email
+      isStale
+      lastLogonTime      
+    }
+  }
+}

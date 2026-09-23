@@ -1,0 +1,48 @@
+query GovernedRequestsQueryJob ($id: ID!){
+    governedRequestsQueryJob(jobId: $id) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            id
+            requestedBy {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+            requestedFor {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+            status
+            type
+            accessAction
+            creationDate
+            closingDate
+            reason
+            approvals {
+                role
+                authLevel
+                approvalDate
+                approver {
+                    id
+                    samAccountName
+                    directoryServices {
+                        name
+                    }
+                }
+            }
+                        affectedGroup {
+                group {
+                    id
+                }
+            }
+            affectedResource {
+                id
+            }
+        }
+    }
+}

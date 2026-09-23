@@ -1,0 +1,10 @@
+query GovernedResourceAuthorizationRulesQueryJob($id: ID!) {
+    governedResourceAuthorizationRulesQueryJob(jobId: $id) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            id
+        }
+    }
+}

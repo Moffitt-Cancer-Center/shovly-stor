@@ -1,0 +1,12 @@
+query GovernedResourceAuthorizationRulesAsync($path: String!) {
+    governedResourceAuthorizationRulesAsync(
+        where: { resource: { displayPath: { eq: $path } } }
+    ) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            id
+        }
+    }
+}

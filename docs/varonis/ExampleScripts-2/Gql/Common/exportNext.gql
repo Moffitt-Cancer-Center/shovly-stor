@@ -1,0 +1,9 @@
+query exportJob($cursor: String!){
+  exportNextAsync(nextAsyncCursor: $cursor) {
+    dataUrl
+    hasMoreData
+    jobId
+    jobStatus
+    nextExportCursor
+  }
+}

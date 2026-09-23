@@ -1,0 +1,12 @@
+query GovernedGroupsQueryJob ($id: ID!){
+    governedGroupsQueryJob(jobId: $id) {
+        results {
+            group {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+        }
+    }
+}

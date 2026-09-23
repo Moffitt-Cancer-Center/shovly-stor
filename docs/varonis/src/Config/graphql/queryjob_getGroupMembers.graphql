@@ -1,0 +1,25 @@
+query MembershipsQueryJob ($id: ID!){
+    membershipsQueryJob(jobId: $id) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            group {
+                directoryService {
+                    id
+                    name
+                }
+                name
+            }
+            member {
+                directoryServices {
+                    id
+                    name
+                }
+                name
+                type
+                id
+            }
+        }
+    }
+}

@@ -1,0 +1,32 @@
+query GovernedResourceAutomaticRulesAsync {
+    governedResourceAutomaticRulesAsync(
+        where: { resource: { displayPath: { neq: " " } } }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            id
+            name
+            accessAction
+            expirationDate
+            expirationDaysAfterApproval
+            actionType
+            explanation
+            isEnabled
+            isEnforced
+            isSuspended
+            isAutoApproved
+            clauses
+            permissions {
+                permissionType
+                group {
+                    samAccountName
+                }
+            }
+            resource {
+                displayPath
+            }
+        }
+    }
+}

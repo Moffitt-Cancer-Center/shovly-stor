@@ -1,0 +1,26 @@
+query GovernedGroupsQueryJob($id: ID!) {
+    governedGroupsQueryJob(jobId: $id) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            group {
+                id
+                samAccountName
+                directoryServices {
+                    name
+                    id
+                }
+            }
+            isBypass
+            isGoverned
+            owners {
+                id
+                samAccountName
+            }
+            authorizers {
+                level
+            }
+        }
+    }
+}

@@ -1,0 +1,71 @@
+query GovernedRequestsAsync(
+    $id: Long
+    $status: [RequestsAndAuthorizationsRequestStatus!]
+    $type: [GovernedRequestType!]
+    $requestedBySamAccountName: String
+    $requestedByDirectoryServicesName: String
+    $requestedForSamAccountName: String
+    $requestedForDirectoryServicesName: String
+    $creationDateFrom: DateTime
+    $creationDateTo: DateTime
+) {
+    governedRequestsAsync(
+        where: {
+            id: { eq: $id }
+            status: { in: $status }
+            type: { in: $type }
+            requestedBy: {
+                samAccountName: { eq: $requestedBySamAccountName }
+                directoryServices: { name: { eq: $requestedByDirectoryServicesName } }
+            }
+            requestedFor: {
+                samAccountName: { eq: $requestedForSamAccountName }
+                directoryServices: { name: { eq: $requestedForDirectoryServicesName } }
+            }
+            creationDate: { gte: $creationDateFrom, lte: $creationDateTo }
+        }
+    ) {
+        jobId
+        results {
+            id
+            requestedBy {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+            requestedFor {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+            status
+            type
+            accessAction
+            creationDate
+            closingDate
+            reason
+            approvals {
+                role
+                authLevel
+                approvalDate
+                approver {
+                    id
+                    samAccountName
+                    directoryServices {
+                        name
+                    }
+                }
+            }
+            affectedGroup {
+                group {
+                    id
+                }
+            }
+            affectedResource {
+                id
+            }
+        }
+    }
+}

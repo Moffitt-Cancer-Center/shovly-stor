@@ -250,6 +250,13 @@ def poll_varonis_job(session, token, job_id):
 # the full result set for the scanned file server. The filter argument itself
 # is named "where" (confirmed via the GraphQL error), not "filter".
 #
+# Confirmed via Varonis' own sample scripts (docs/varonis/ExampleScripts/Gql):
+# dataSource is filtered by numeric id via `dataSource: { id: { in: [...] } }`,
+# not by name/type directly -- there's no path/parent filter on resourcesAsync
+# in any official example, so path scoping stays client-side (see
+# _matches_resource_scope). Passing a null $dataSourceIds variable (rather than
+# an empty list) skips the dataSource filter entirely (HotChocolate convention).
+#
 # resourcesAsync must select the exact same "results" fields as
 # resourcesQueryJob -- the job is precomputed from the fields requested on the
 # initial async call (confirmed via the "You must select 'results' field"
@@ -268,8 +275,13 @@ RESOURCE_RESULT_FIELDS = """
 """
 
 RESOURCES_ASYNC_QUERY = f"""
-query StartResourceQuery {{
-  resourcesAsync(where: {{ type: {{ eq: FILE }} }}) {{
+query StartResourceQuery($dataSourceIds: [Int]) {{
+  resourcesAsync(
+    where: {{
+      type: {{ eq: FILE }}
+      dataSource: {{ id: {{ in: $dataSourceIds }} }}
+    }}
+  ) {{
     jobId
     jobStatus
 {RESOURCE_RESULT_FIELDS}
@@ -288,12 +300,82 @@ query GetResourceSizes($jobId: ID!) {{
 }}
 """
 
+# Confirmed shape via the same official sample scripts (dataSourcesAsync ->
+# FileServerQueryJob, per top-level introspection). No filter applied here --
+# the list of configured data sources is small, so it's cheaper to fetch them
+# all and match by name/type in Python than to guess dataSourcesAsync's own
+# filter-input shape.
+DATA_SOURCES_ASYNC_QUERY = """
+query StartDataSourcesQuery {
+  dataSourcesAsync {
+    jobId
+    jobStatus
+    results {
+      id
+      name
+      type
+    }
+  }
+}
+"""
+
+DATA_SOURCES_QUERY_JOB = """
+query GetDataSources($jobId: ID!) {
+  dataSourcesQueryJob(jobId: $jobId) {
+    jobId
+    jobStatus
+    results {
+      id
+      name
+      type
+    }
+  }
+}
+"""
+
 VARONIS_RESOURCES_POLL_INTERVAL = float(os.getenv("VARONIS_RESOURCES_POLL_INTERVAL", "5"))
 VARONIS_RESOURCES_POLL_MAX_ATTEMPTS = int(os.getenv("VARONIS_RESOURCES_POLL_MAX_ATTEMPTS", "60"))
 
-def start_varonis_resources_job(session, token):
+def list_varonis_data_sources(session, token):
+    """Fetch all configured Varonis data sources (id/name/type) -- used to
+    resolve VARONIS_DATA_SOURCE_NAME to the numeric id resourcesAsync's where
+    clause actually filters on."""
+    result = submit_varonis_graphql(session, token, DATA_SOURCES_ASYNC_QUERY)
+    job = result["data"]["dataSourcesAsync"]
+    job_id = job["jobId"]
+    status = (job.get("jobStatus") or "").upper()
+    if status in ("COMPLETED", "PARTIAL_RESULTS"):
+        return job.get("results") or []
+    for _ in range(VARONIS_RESOURCES_POLL_MAX_ATTEMPTS):
+        result = submit_varonis_graphql(session, token, DATA_SOURCES_QUERY_JOB, {"jobId": job_id})
+        job = result["data"]["dataSourcesQueryJob"]
+        status = (job.get("jobStatus") or "").upper()
+        if status in ("COMPLETED", "PARTIAL_RESULTS"):
+            return job.get("results") or []
+        if status in ("FAILED", "CANCELED"):
+            raise RuntimeError(f"Varonis dataSourcesAsync job {job_id} ended with status {status}")
+        time.sleep(VARONIS_RESOURCES_POLL_INTERVAL)
+    raise TimeoutError(f"Varonis dataSourcesAsync job {job_id} did not complete in time")
+
+def resolve_varonis_data_source_id(session, token):
+    """Look up the numeric id for VARONIS_DATA_SOURCE_NAME (and
+    VARONIS_DATA_SOURCE_TYPE if set), for resourcesAsync's where clause.
+    Returns None if unset or not found (scan proceeds unfiltered by data source)."""
+    if not VARONIS_DATA_SOURCE_NAME:
+        return None
+    for data_source in list_varonis_data_sources(session, token):
+        if data_source.get("name") != VARONIS_DATA_SOURCE_NAME:
+            continue
+        if VARONIS_DATA_SOURCE_TYPE and data_source.get("type") != VARONIS_DATA_SOURCE_TYPE:
+            continue
+        return data_source.get("id")
+    print(f"    [!] No Varonis data source named '{VARONIS_DATA_SOURCE_NAME}' "
+          f"(type={VARONIS_DATA_SOURCE_TYPE or 'any'}) found -- scanning all data sources instead.")
+    return None
+
+def start_varonis_resources_job(session, token, data_source_ids=None):
     """Kick off the Varonis file-resource scan job (step 1); returns the jobId."""
-    result = submit_varonis_graphql(session, token, RESOURCES_ASYNC_QUERY)
+    result = submit_varonis_graphql(session, token, RESOURCES_ASYNC_QUERY, {"dataSourceIds": data_source_ids})
     job_id = result["data"]["resourcesAsync"]["jobId"]
     print(f"    [*] Started Varonis resource scan job {job_id} -- this can take a while on large file servers.")
     return job_id
@@ -337,11 +419,14 @@ def _matches_resource_scope(item):
 
 def get_varonis_usage_by_user(session, token):
     """Run the file-resource scan and aggregate size/staleness per owner account,
-    scoped to VARONIS_DATA_SOURCE_NAME/VARONIS_DATA_SOURCE_TYPE/VARONIS_PATH_PREFIXES.
+    scoped to VARONIS_DATA_SOURCE_NAME/VARONIS_DATA_SOURCE_TYPE (filtered
+    server-side by resolved id) and VARONIS_PATH_PREFIXES (filtered client-side).
 
     Returns {samAccountName: {"usage_bytes": int, "stale_bytes": int}}.
     """
-    job_id = start_varonis_resources_job(session, token)
+    data_source_id = resolve_varonis_data_source_id(session, token)
+    data_source_ids = [data_source_id] if data_source_id is not None else None
+    job_id = start_varonis_resources_job(session, token, data_source_ids)
     results = poll_varonis_resources_job(session, token, job_id)
     in_scope = [item for item in results if _matches_resource_scope(item)]
     print(f"    [*] {len(in_scope)}/{len(results)} scanned files matched the configured data source/path scope.")

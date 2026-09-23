@@ -1,0 +1,18 @@
+query GovernedResourceAuthorizationRuleMutationJob($id: ID!) {
+    governedResourceAuthorizationRuleMutationJob(jobId: $id) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            extensions {
+                errorCode
+                errorDetails
+                errorMessage
+            }
+            result {
+                name
+            }
+            succeeded
+        }
+    }
+}

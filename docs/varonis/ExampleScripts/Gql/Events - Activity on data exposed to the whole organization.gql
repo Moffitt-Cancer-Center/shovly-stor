@@ -1,0 +1,53 @@
+query ($fromDate: DateTime!, $toDate: DateTime!, $dataSourceIds: [Int]) {
+  eventsAsync(
+    mandatoryWhere: {
+         dateTimeUtc: { between: { from: $fromDate, to: $toDate } }
+    },
+    where: {
+        dataSource: { id: { in: $dataSourceIds } }
+        affectedResource: { exposureLevel: { includeAll: ORGANIZATION_WIDE } }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      generationTime {
+        dateTimeUtc
+        dayOfWeek
+        hour
+      }
+      affectedIdentity{
+        name
+      }
+      name {
+        eventName
+      }
+      eventDescription
+      actor {
+        affiliation
+        name
+        privilegedIdentityType
+      }
+      device {
+        userAgent
+        externalIP {
+          ip
+        }
+      }
+      location {
+        country
+        isDeniedLocation
+      }
+      affectedResource {
+        path
+        isSensitive
+        type
+      }
+      dataSource {
+        id
+        name
+        type
+      }
+    }
+  }
+}

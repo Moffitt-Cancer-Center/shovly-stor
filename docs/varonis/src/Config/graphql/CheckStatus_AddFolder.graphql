@@ -1,0 +1,14 @@
+query GovernedResourceMutationJob ($id:ID!){
+    governedResourceMutationJob(jobId: $id) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

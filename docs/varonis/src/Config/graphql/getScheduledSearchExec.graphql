@@ -1,0 +1,17 @@
+query ScheduledSearchExecutions(
+    $id: [ID!]!
+    $gte: DateTime
+    $lt: DateTime
+) {
+    scheduledSearchExecutions(
+        scheduledSearchIds: $id
+        where: { time: { gte: $gte, lt: $lt } }
+    ) {
+        results {
+            dataUrl
+            linkedSavedSearch {
+                name
+            }
+        }
+    }
+}

@@ -1,0 +1,57 @@
+mutation CreateGovernedMembershipRequestsAsync(
+    $groupAccountName: String
+    $groupDomainName: String
+    $groupId: Int
+    $requestedForSamAccountName: String
+    $requestedForDirectoryServicesName: String
+    $accessAction: GovernedAccessActionBasic!
+    $reason: String
+    $isAutoApprove: Boolean
+    $expirationDate: DateTime
+    $activationDate: DateTime
+    $expirationDaysInterval: Int
+) {
+    createGovernedMembershipRequestsAsync(
+        createGovernedMembershipRequestInput: {
+            groupAccountName: $groupAccountName
+            groupDomainName: $groupDomainName
+            groupId: $groupId
+            requestedFor: {
+                samAccountName: $requestedForSamAccountName
+                directoryServices: { name: $requestedForDirectoryServicesName }
+            }
+            accessAction: $accessAction
+            reason: $reason
+            isAutoApprove: $isAutoApprove
+            expirationDate: $expirationDate
+            activationDate: $activationDate
+            expirationDaysInterval: $expirationDaysInterval
+        }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            result {
+                id
+                approvals {
+                    approver {
+                        samAccountName
+                        directoryServices {
+                            name
+                        }
+                    }
+                    role
+                    authLevel
+                }
+                status
+            }
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

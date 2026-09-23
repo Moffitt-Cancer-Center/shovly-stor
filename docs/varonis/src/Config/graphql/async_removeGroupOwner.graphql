@@ -1,0 +1,32 @@
+mutation RemoveGovernedGroupOwnersAsync(
+    $groupName: String!
+    $groupDomain: String! 
+    $ownerName: String!
+    $ownerDomain: String! 
+    ) 
+    {
+    removeGovernedGroupOwnersAsync(
+        removeGovernedGroupOwnersInput: {
+            group: {
+                samAccountName: $groupName
+                directoryServices: { name: $groupDomain }
+            }
+            owners: {
+                samAccountName: $ownerName
+                directoryServices: { name: $ownerDomain }
+            }
+        }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

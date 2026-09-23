@@ -1,0 +1,27 @@
+query GovernedRequestMutationJob($id: ID!) {
+    governedRequestMutationJob(jobId: $id) {
+        jobStatus
+        results {
+            result {
+                id
+                approvals {
+                    approver {
+                        samAccountName
+                        directoryServices {
+                            name
+                        }
+                    }
+                    role
+                    authLevel
+                    approvalDate
+                }
+            }
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

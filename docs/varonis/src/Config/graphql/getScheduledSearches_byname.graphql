@@ -1,0 +1,6 @@
+query ScheduledSearches {
+        scheduledSearches {
+        id
+        name
+    }
+}

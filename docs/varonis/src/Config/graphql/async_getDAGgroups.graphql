@@ -1,0 +1,26 @@
+query GovernedGroupsAsync {
+    governedGroupsAsync(where: { isGoverned: { eq: true } }) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            isBypass
+            isGoverned
+            group {
+                id
+                samAccountName
+            }
+            owners {
+                id
+                samAccountName
+            }
+            authorizers {
+                level
+                account {
+                    id
+                    samAccountName
+                }
+            }
+        }
+    }
+}

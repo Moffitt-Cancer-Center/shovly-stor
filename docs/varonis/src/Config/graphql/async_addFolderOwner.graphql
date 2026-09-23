@@ -1,0 +1,26 @@
+mutation AddGovernedResourceOwnersAsync(
+    $displayPath: String!, 
+    $ownerName: String!
+    $ownerDomain: String! 
+    ) 
+    {
+    addGovernedResourceOwnersAsync(
+        addGovernedResourceOwnersInput: { displayPath: $displayPath, 
+            owners: {
+                samAccountName: $ownerName
+                directoryServices: { name: $ownerDomain }
+            }
+        }
+    ) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

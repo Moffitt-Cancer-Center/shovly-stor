@@ -1,0 +1,25 @@
+query {
+  identitiesAsync(
+    where: {
+      isDisabled: { eq: false }
+      isStale: { eq: true }
+      type: { in: [USER, COMPUTER, SERVICE_PRINCIPAL, APPLICATION] }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      name
+      directoryServices {
+        directoryType {
+          name
+        }
+      }
+      affiliation
+      privilegedIdentityType
+      passwordExpirationStatus
+      expirationStatus
+      lastLogonTime
+    }
+  }
+}

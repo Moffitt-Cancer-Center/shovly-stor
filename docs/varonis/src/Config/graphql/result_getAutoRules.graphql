@@ -1,0 +1,30 @@
+query GovernedResourceAutomaticRulesQueryJob ($id: ID!) {
+    governedResourceAutomaticRulesQueryJob(jobId: $id) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            id
+            name
+            accessAction
+            expirationDate
+            expirationDaysAfterApproval
+            actionType
+            explanation
+            isEnabled
+            isEnforced
+            isSuspended
+            isAutoApproved
+            clauses
+            permissions {
+                permissionType
+                group {
+                    samAccountName
+                }
+            }
+            resource {
+                displayPath
+            }
+        }
+    }
+}

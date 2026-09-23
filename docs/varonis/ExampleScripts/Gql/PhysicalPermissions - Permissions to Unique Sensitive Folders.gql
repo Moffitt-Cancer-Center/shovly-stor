@@ -1,0 +1,51 @@
+query ($dataSourceIds: [Int]) {
+  physicalPermissionsAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      resource:  {
+         type:  {
+            eq: FOLDER
+         }
+         isSensitive:  {
+            eq: true
+         }
+         isUnique:  {
+            eq: true
+         }
+      }
+      permissionMethod:  {
+         in: [FILE_SYSTEM_PERMISSION, COLLABORATION_LINK]
+      }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      identity {
+        name
+        type
+        affiliation
+      }
+      resource {
+        path
+        name
+        type
+        classification {
+          results
+        }
+      }
+      dataSource {
+        id
+        name
+        type
+      }
+      permissionMethod
+      permissionType
+      permissionFlag {
+        name
+      }
+      staleSince
+      isStalePermission
+    }
+  }
+}

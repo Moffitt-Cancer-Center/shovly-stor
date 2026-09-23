@@ -1,0 +1,26 @@
+query MembershipsAsync($where: GroupMembership_FilterInput!) {
+    membershipsAsync(where: $where) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            group {
+                directoryService {
+                    id
+                    name
+                }
+                name
+                sidID
+            }
+            member {
+                directoryServices {
+                    id
+                    name
+                }
+                name
+                type
+                id
+            }
+        }
+    }
+}

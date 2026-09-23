@@ -1,0 +1,7 @@
+query GovernedResourcesQueryJob ($id: ID!) {
+    governedResourcesQueryJob(jobId: $id) {
+        results {
+            displayPath
+        }
+    }
+}

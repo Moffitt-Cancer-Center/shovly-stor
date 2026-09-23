@@ -1,0 +1,30 @@
+query GovernedResourceMutationJob($id: ID!) {
+    governedResourceMutationJob(jobId: $id) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+            result {
+                displayPath
+                permissions {
+                    permissionType {
+                        name
+                    }
+                    physicalPermission {
+                        identity {
+                            samAccountName
+                            directoryServices {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

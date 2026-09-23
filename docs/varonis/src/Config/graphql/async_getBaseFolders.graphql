@@ -1,0 +1,25 @@
+query GovernedResourcesAsync {
+    governedResourcesAsync(where: { isRootResource: { eq: true } }) {
+        jobId
+        results {
+            id
+            displayPath
+            isUndetected
+            isAllowDirectAcl
+            isRootResource
+            isGoverned
+            owners {
+                id
+                samAccountName
+            }
+             authorizers {
+                level
+                account {
+                    id
+                    samAccountName
+                }
+            }
+        }
+        jobStatus
+    }
+}

@@ -1,0 +1,3 @@
+type,entity,oldAuthorizer,newAuthorizer,level
+folder,\\server\share,domain.com\oldAuthorizer,domain.com\newauthorizer,1
+group,domain.com\group,domain.com\oldAuthorizer,domain.com\newauthorizer,1

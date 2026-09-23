@@ -1,0 +1,28 @@
+mutation RemoveGovernedResourceOwnersAsync(
+    $displayPath: String!, 
+    $ownerName: String!
+    $ownerDomain: String! 
+    ) 
+    {
+    removeGovernedResourceOwnersAsync(
+        removeGovernedResourceOwnersInput: { 
+            displayPath: $displayPath, 
+            owners: {
+                samAccountName: $ownerName
+                directoryServices: { name: $ownerDomain }
+            }
+        }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

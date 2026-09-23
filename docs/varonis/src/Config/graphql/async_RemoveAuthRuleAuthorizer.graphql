@@ -1,0 +1,18 @@
+mutation RemoveGovernedResourceAuthorizersFromRuleAsync (
+    $id: ID!
+    $authorizers: [RemoveGovernedResourceAuthorizersFromRuleInput_AuthorizersInput!]
+){
+    removeGovernedResourceAuthorizersFromRuleAsync(
+        removeGovernedResourceAuthorizersFromRuleInput: [{ id: $id, authorizers: $authorizers }]
+    ) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            succeeded
+            result {
+                name
+            }
+        }
+    }
+}

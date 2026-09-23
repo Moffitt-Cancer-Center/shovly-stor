@@ -1,0 +1,29 @@
+query ($dataSourceIds: [Int]) {
+  resourcesAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      isSensitive: { eq: true }
+      isStaleIncludingSubfolders: { eq: true }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      resourceOwner {
+        name
+      }
+      dataSource {
+        id
+        name
+        type
+      }
+      path
+      type
+      classification {
+        totalRecordCount
+        results
+      }
+      exposureLevel
+    }
+  }
+}

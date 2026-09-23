@@ -1,0 +1,23 @@
+mutation AddGovernedResourceAuthorizersToRuleAsync(
+    $id: ID!
+    $authorizers: [AddGovernedResourceAuthorizersToRuleInput_AuthorizersInput!]
+) {
+    addGovernedResourceAuthorizersToRuleAsync(
+        addGovernedResourceAuthorizersToRuleInput: { id: $id, authorizers: $authorizers }
+    ) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorCode
+                errorDetails
+                errorMessage
+            }
+            result {
+                name
+            }
+        }
+    }
+}

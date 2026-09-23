@@ -1,0 +1,6 @@
+mutation ManageIpList($input: ManageIpListInput!) {
+  manageIpList(input: $input) {
+    ipAddresses
+    count
+  }
+}

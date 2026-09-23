@@ -1,0 +1,12 @@
+query GovernedGroupAuthorizationRulesAsync(
+    $groupInput: GovernedGroupAuthorizationRule_Group_FilterInput
+) {
+    governedGroupAuthorizationRulesAsync(where: { group: $groupInput }) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            id
+        }
+    }
+}

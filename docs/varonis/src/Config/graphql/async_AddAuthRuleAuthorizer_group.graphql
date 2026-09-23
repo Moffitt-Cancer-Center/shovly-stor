@@ -1,0 +1,23 @@
+mutation AddGovernedGroupAuthorizersToRuleAsync(
+    $id: ID!
+    $authorizers: [AddGovernedGroupAuthorizersToRuleInput_AuthorizersInput!]
+) {
+    addGovernedGroupAuthorizersToRuleAsync(
+        addGovernedGroupAuthorizersToRuleInput: [{ id: $id, authorizers: $authorizers }]
+    ) {
+        jobId
+        jobProgress
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorCode
+                errorDetails
+                errorMessage
+            }
+            result {
+                name
+            }
+        }
+    }
+}

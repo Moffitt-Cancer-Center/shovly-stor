@@ -1,0 +1,21 @@
+query GovernedResourcesAsync(
+    $samAccountName: [String!]
+    $directoryServices: [String!]
+) {
+    governedResourcesAsync(
+        where: {
+            isRootResource: { eq: true }
+            owners: {
+                samAccountName: { in: $samAccountName }
+                directoryServices: { name: { in: $directoryServices } }
+            }
+        }
+    ) {
+        jobId
+        jobStatus
+        results {
+            displayPath
+            }
+        }
+    }
+

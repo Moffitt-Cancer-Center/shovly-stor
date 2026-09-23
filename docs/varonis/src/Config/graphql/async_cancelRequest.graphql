@@ -1,0 +1,18 @@
+mutation CancelGovernedRequestsAsync ($id: Long!){
+    cancelGovernedRequestsAsync(cancelGovernedRequestsInput: { id: $id }) {
+        results {
+            succeeded
+            result {
+                id
+                status
+            }
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+        jobId
+        jobStatus
+    }
+}

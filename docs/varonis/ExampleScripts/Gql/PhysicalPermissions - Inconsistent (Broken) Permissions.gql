@@ -1,0 +1,32 @@
+query ($dataSourceIds: [Int]) {
+  physicalPermissionsAsync(
+    where: {
+      dataSource: { id: { in: $dataSourceIds } }
+      resource: { hasBrokenPermissions: { eq: true } }
+    }
+  ) {
+    jobId
+    jobStatus
+    results {
+      identity {
+        name
+        samAccountName
+      }
+      resource {
+        path
+        name
+      }
+      permissionType
+      permissionFlag {
+        name
+      }
+      inheritedFrom {
+        entityIdx
+        path
+        dataSource {
+          id
+        }
+      }
+    }
+  }
+}

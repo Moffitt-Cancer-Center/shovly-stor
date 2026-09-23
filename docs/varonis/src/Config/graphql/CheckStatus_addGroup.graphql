@@ -1,0 +1,14 @@
+query GovernedGroupMutationJob($id: ID!) {
+    governedGroupMutationJob(jobId: $id) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorCode
+                errorDetails
+                errorMessage
+            }
+        }
+    }
+}

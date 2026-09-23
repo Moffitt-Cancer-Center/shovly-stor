@@ -1,0 +1,35 @@
+query auditExportAsync($gte: DateTime!, $lt: DateTime) {
+  auditExportAsync(
+    mandatoryWhere: { generationDateTime: { gte: $gte, lt: $lt } }
+  ) {
+    ... on ExportJobOfAuditEvent {
+      dataUrl
+      jobId
+      hasMoreData
+      jobStatus
+      nextExportCursor
+    }
+    ... on AuditEvent {
+      affectedObjectName
+      affectedObjectPath
+      generationDateTime
+      description
+      filerOrDomainName
+      affectedObjectType {
+        name
+      }
+      operation {
+        name
+      }
+      type {
+        name
+      }
+      user {
+        name
+        role {
+          name
+        }
+      }
+    }
+  }
+}

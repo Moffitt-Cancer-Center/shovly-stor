@@ -1,0 +1,19 @@
+mutation RemoveGovernedResourcesAsync($removeGovernedResourcesInput: [RemoveGovernedResourcesInput!]!) {
+    removeGovernedResourcesAsync(
+        removeGovernedResourcesInput: $removeGovernedResourcesInput
+    ) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            result {
+                displayPath
+            }
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+        }
+    }
+}

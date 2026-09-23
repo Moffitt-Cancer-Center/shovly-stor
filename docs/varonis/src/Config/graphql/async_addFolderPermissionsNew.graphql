@@ -1,0 +1,40 @@
+mutation CreateGovernedResourceNewPermissionGroupsAsync(
+    $makeTraverse: Boolean!
+    $displayPath: String!
+    $permissionTypeName: String!
+) {
+    createGovernedResourceNewPermissionGroupsAsync(
+        createGovernedResourceNewPermissionGroupsInput: {
+            makeTraverse: $makeTraverse
+            displayPath: $displayPath
+            permissions: { permissionType: { name: $permissionTypeName } }
+        }
+    ) {
+        jobId
+        jobStatus
+        results {
+            succeeded
+            extensions {
+                errorMessage
+                errorDetails
+                errorCode
+            }
+            result {
+                displayPath
+                permissions {
+                    permissionType {
+                        name
+                    }
+                    physicalPermission {
+                        identity {
+                            samAccountName
+                            directoryServices {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

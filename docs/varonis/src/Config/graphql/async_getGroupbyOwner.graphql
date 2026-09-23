@@ -1,0 +1,25 @@
+query GovernedGroupsAsync(
+    $samAccountName: [String!]
+    $directoryServices: [String!]
+) {
+    governedGroupsAsync(
+        where: {
+            owners: {
+                samAccountName: { in: $samAccountName }
+                directoryServices: { name: { in: $directoryServices } }
+            }
+        }
+    ) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            group {
+                samAccountName
+                directoryServices {
+                    name
+                }
+            }
+        }
+    }
+}

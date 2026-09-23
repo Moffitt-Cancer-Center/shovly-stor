@@ -1,0 +1,11 @@
+mutation CreateActionRequest($input: CreateActionRequestInput!) {
+    createActionRequest(
+        input: $input
+    ) {
+        requestResults {
+            actionRequestId
+            failureMessage
+            status
+        }
+    }
+}

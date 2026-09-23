@@ -1,0 +1,10 @@
+query GovernedResourceAutomaticRulesQueryJob($id: ID!) {
+    governedResourceAutomaticRulesQueryJob(jobId: $id) {
+        jobId
+        jobStatus
+        jobProgress
+        results {
+            id
+        }
+    }
+}

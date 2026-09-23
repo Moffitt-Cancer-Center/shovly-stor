@@ -1,0 +1,9 @@
+query exportJob($job_id: String!) {
+            exportJob(jobId: $job_id) {
+                    dataUrl
+                    hasMoreData
+                    jobStatus
+                    nextExportCursor
+                    jobId
+            }
+        }

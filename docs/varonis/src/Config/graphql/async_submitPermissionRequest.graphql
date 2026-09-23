@@ -1,0 +1,59 @@
+mutation CreateGovernedPermissionRequestsAsync(
+  $resourceDisplayPath: String
+  $resourceId: Int
+  $permissionTypeName: String
+  $requestedForSamAccountName: String
+  $requestedForDirectoryServicesName: String
+  $accessAction: GovernedAccessAction!
+  $reason: String
+  $isAutoApprove: Boolean
+  $expirationDate: DateTime
+  $activationDate: DateTime
+  $expirationDaysInterval: Int
+) {
+  createGovernedPermissionRequestsAsync(
+    createGovernedPermissionRequestInput: {
+      resourceDisplayPath: $resourceDisplayPath
+      resourceId: $resourceId
+      permissionTypeName: $permissionTypeName
+      requestedFor: {
+        samAccountName: $requestedForSamAccountName
+        directoryServices: { name: $requestedForDirectoryServicesName }
+      }
+      accessAction: $accessAction
+      reason: $reason
+      autoApprove: $isAutoApprove
+      expirationDate: $expirationDate
+      activationDate: $activationDate
+      expirationDaysInterval: $expirationDaysInterval
+    }
+  ) {
+    jobId
+    jobStatus
+    jobProgress
+    results {
+      result {
+        id
+        status
+        approvals {
+          role
+          authLevel
+          approvalDate
+          approver {
+            id
+            samAccountName
+            directoryServices {
+              name
+            }
+          }
+        }
+      }
+      succeeded
+      extensions {
+        errorMessage
+        errorDetails
+        errorCode
+      }
+    }
+  }
+}

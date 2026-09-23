@@ -300,14 +300,14 @@ query GetResourceSizes($jobId: ID!) {{
 }}
 """
 
-# Confirmed shape via the same official sample scripts (dataSourcesAsync ->
-# FileServerQueryJob, per top-level introspection). No filter applied here --
-# the list of configured data sources is small, so it's cheaper to fetch them
-# all and match by name/type in Python than to guess dataSourcesAsync's own
-# filter-input shape.
+# Confirmed shape via docs/varonis/manual_action_scripts/Add Permission.ps1:
+# dataSourcesAsync requires a non-null "where" argument -- {type: {eq: <enum>}}
+# is the minimal valid filter (a bare DataSourceType enum, not a string). Passing
+# a null $type variable still satisfies the required "where" argument while
+# skipping the type filter (HotChocolate null-means-unfiltered convention).
 DATA_SOURCES_ASYNC_QUERY = """
-query StartDataSourcesQuery {
-  dataSourcesAsync {
+query StartDataSourcesQuery($type: DataSourceType) {
+  dataSourcesAsync(where: { type: { eq: $type } }) {
     jobId
     jobStatus
     results {
@@ -337,10 +337,11 @@ VARONIS_RESOURCES_POLL_INTERVAL = float(os.getenv("VARONIS_RESOURCES_POLL_INTERV
 VARONIS_RESOURCES_POLL_MAX_ATTEMPTS = int(os.getenv("VARONIS_RESOURCES_POLL_MAX_ATTEMPTS", "60"))
 
 def list_varonis_data_sources(session, token):
-    """Fetch all configured Varonis data sources (id/name/type) -- used to
-    resolve VARONIS_DATA_SOURCE_NAME to the numeric id resourcesAsync's where
-    clause actually filters on."""
-    result = submit_varonis_graphql(session, token, DATA_SOURCES_ASYNC_QUERY)
+    """Fetch configured Varonis data sources (id/name/type), optionally filtered
+    by VARONIS_DATA_SOURCE_TYPE server-side -- used to resolve
+    VARONIS_DATA_SOURCE_NAME to the numeric id resourcesAsync's where clause
+    actually filters on."""
+    result = submit_varonis_graphql(session, token, DATA_SOURCES_ASYNC_QUERY, {"type": VARONIS_DATA_SOURCE_TYPE or None})
     job = result["data"]["dataSourcesAsync"]
     job_id = job["jobId"]
     status = (job.get("jobStatus") or "").upper()
